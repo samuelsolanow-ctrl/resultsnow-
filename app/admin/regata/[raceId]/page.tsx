@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import AuthGate from "@/components/AuthGate";
 import RaceShare from "@/components/RaceShare";
 import { db } from "@/lib/adminDb";
-import { CODE_LABELS, POINTS_CODES, computeStandings } from "@/lib/scoring";
+import { CODE_LABELS, KEEP_PLACE_CODES, POINTS_CODES, computeStandings } from "@/lib/scoring";
 import { sailDigits } from "@/lib/slug";
 import type { ClassRow, EntryRow, EventRow, RaceRow, ResultRow } from "@/lib/types";
 
@@ -15,7 +15,11 @@ export default function RacePage() {
 }
 
 const QUICK_CODES = ["OCS", "DNF", "DNS", "RET", "DSQ", "BFD", "UFD", "NSC", "DNC"];
-const ALL_CODES = [...QUICK_CODES, "DNE", ...POINTS_CODES];
+const ALL_CODES = [...QUICK_CODES, "DNE", "DGM", "RDG"];
+/** marcações para quem cruzou a linha (mantém o lugar) */
+const FINISH_MARKS = ["", "TIE", ...KEEP_PLACE_CODES];
+const isKeep = (c?: string) => !!c && (KEEP_PLACE_CODES as readonly string[]).includes(c);
+const isPts = (c?: string) => !!c && (POINTS_CODES as readonly string[]).includes(c);
 
 type Loaded = {
   race: RaceRow;
@@ -33,7 +37,8 @@ function RaceEditor() {
   const [order, setOrder] = useState<string[]>([]);
   const [codes, setCodes] = useState<Record<string, string>>({});
   const [pts, setPts] = useState<Record<string, string>>({});
-  const [history, setHistory] = useState<{ order: string[]; codes: Record<string, string> }[]>([]);
+  const [tied, setTied] = useState<string[]>([]);
+  const [history, setHistory] = useState<{ order: string[]; codes: Record<string, string>; tied: string[] }[]>([]);
   const [mode, setMode] = useState<string>("FIN"); // FIN = chegada, ou um código
   const [filter, setFilter] = useState("");
   const [date, setDate] = useState("");
@@ -59,7 +64,9 @@ function RaceEditor() {
       );
       const allRaces = (races ?? []) as (RaceRow & { results: ResultRow[] })[];
       const mine = allRaces.find((r) => r.id === raceId)?.results ?? [];
-      setOrder(mine.filter((r) => r.position != null && !r.code).sort((a, b) => a.position! - b.position!).map((r) => r.entry_id));
+      const fin = mine.filter((r) => r.position != null).sort((a, b) => a.position! - b.position!);
+      setOrder(fin.map((r) => r.entry_id));
+      setTied(fin.filter((r, i) => i > 0 && r.position === fin[i - 1].position).map((r) => r.entry_id));
       setCodes(Object.fromEntries(mine.filter((r) => r.code && r.code !== "DNC").map((r) => [r.entry_id, r.code!])));
       setPts(Object.fromEntries(mine.filter((r) => r.points != null).map((r) => [r.entry_id, String(r.points)])));
       setDate(race.sailed_on ?? "");
@@ -91,7 +98,7 @@ function RaceEditor() {
   const { race, cls, ev, entries } = data;
 
   function snapshot() {
-    setHistory((h) => [...h.slice(-50), { order, codes }]);
+    setHistory((h) => [...h.slice(-50), { order, codes, tied }]);
     setDirty(true);
     setSaved(false);
   }
@@ -112,6 +119,7 @@ function RaceEditor() {
     if (!last) return;
     setOrder(last.order);
     setCodes(last.codes);
+    setTied(last.tied);
     setHistory((h) => h.slice(0, -1));
     setDirty(true);
   }
@@ -120,6 +128,7 @@ function RaceEditor() {
     snapshot();
     setOrder((o) => o.filter((x) => x !== id));
     setCodes(({ [id]: _, ...rest }) => rest);
+    setTied((t) => t.filter((x) => x !== id));
   }
 
   function move(i: number, dir: -1 | 1) {
@@ -129,6 +138,20 @@ function RaceEditor() {
     const o = [...order];
     [o[i], o[j]] = [o[j], o[i]];
     setOrder(o);
+  }
+
+  /** marca de quem chegou: empate com o de cima, SCP, ZFP, DPI ou RDG */
+  function markFinisher(id: string, mark: string) {
+    snapshot();
+    setTied((t) => (mark === "TIE" ? [...t.filter((x) => x !== id), id] : t.filter((x) => x !== id)));
+    setCodes(({ [id]: _, ...rest }) => (isKeep(mark) ? { ...rest, [id]: mark } : rest));
+  }
+
+  /** posições com empate (A7): empatados repetem a posição, o seguinte pula */
+  function positions(): number[] {
+    const out: number[] = [];
+    order.forEach((id, i) => out.push(i > 0 && tied.includes(id) ? out[i - 1] : i + 1));
+    return out;
   }
 
   function onFilterEnter() {
@@ -142,18 +165,26 @@ function RaceEditor() {
 
   function buildRows(): ResultRow[] {
     return [
-      ...order.map((entry_id, i) => ({ race_id: race.id, entry_id, position: i + 1, code: null, points: null })),
+      ...order.map((entry_id, i) => {
+        const code = isKeep(codes[entry_id]) ? codes[entry_id] : null;
+        return {
+          race_id: race.id,
+          entry_id,
+          position: positions()[i],
+          code,
+          points: code && isPts(code) && pts[entry_id] ? Number(pts[entry_id].replace(",", ".")) : null,
+        };
+      }),
       ...entries
         .filter((e) => !order.includes(e.id))
         .map((e) => {
           const code = codes[e.id] ?? "DNC";
-          const isPts = (POINTS_CODES as readonly string[]).includes(code);
           return {
             race_id: race.id,
             entry_id: e.id,
             position: null,
             code,
-            points: isPts && pts[e.id] ? Number(pts[e.id].replace(",", ".")) : null,
+            points: isPts(code) && pts[e.id] ? Number(pts[e.id].replace(",", ".")) : null,
           };
         }),
     ];
@@ -285,14 +316,46 @@ function RaceEditor() {
         <div className="card divide-y divide-line">
           {order.map((id, i) => {
             const e = byId.get(id)!;
+            const pos = positions()[i];
+            const mark = tied.includes(id) && i > 0 ? "TIE" : isKeep(codes[id]) ? codes[id] : "";
             return (
-              <div key={id} className="flex items-center gap-2 px-3 py-1.5">
-                <span className={`num w-8 text-right font-display text-xl font-bold ${i < 3 ? "text-sea" : ""}`}>{i + 1}</span>
-                <span className="num w-16 shrink-0 font-semibold">{e.sail_number}</span>
-                <span className="min-w-0 flex-1 truncate text-sm">{e.helm_name}</span>
-                <IconBtn onClick={() => move(i, -1)} label="Subir">↑</IconBtn>
-                <IconBtn onClick={() => move(i, 1)} label="Descer">↓</IconBtn>
-                <IconBtn onClick={() => release(id)} label="Tirar" danger>×</IconBtn>
+              <div key={id} className="px-3 py-1.5">
+                <div className="flex items-center gap-2">
+                  <span className={`num w-8 text-right font-display text-xl font-bold ${pos <= 3 ? "text-sea" : ""}`}>
+                    {mark === "TIE" ? "=" : ""}{pos}
+                  </span>
+                  <span className="num w-16 shrink-0 font-semibold">{e.sail_number}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm">{e.helm_name}</span>
+                  <select
+                    aria-label="Marcação"
+                    className={`h-8 w-[74px] shrink-0 rounded-lg border px-1 text-xs font-semibold ${mark ? "border-red-200 bg-red-50 text-flag" : "border-line bg-white text-ink-3"}`}
+                    value={mark}
+                    onChange={(ev) => markFinisher(id, ev.target.value)}
+                  >
+                    {FINISH_MARKS.filter((m) => m !== "TIE" || i > 0).map((m) => (
+                      <option key={m} value={m}>{m === "" ? "—" : m === "TIE" ? "Empate" : m}</option>
+                    ))}
+                  </select>
+                  <IconBtn onClick={() => move(i, -1)} label="Subir">↑</IconBtn>
+                  <IconBtn onClick={() => move(i, 1)} label="Descer">↓</IconBtn>
+                  <IconBtn onClick={() => release(id)} label="Tirar" danger>×</IconBtn>
+                </div>
+                {mark === "SCP" || mark === "ZFP" ? (
+                  <p className="ml-10 text-xs text-ink-3">+20% dos pontos de DNF (regra {mark === "SCP" ? "44.3" : "30.2"}). Os outros barcos não mudam de lugar.</p>
+                ) : null}
+                {mark === "TIE" ? <p className="ml-10 text-xs text-ink-3">Empatado com o barco de cima: dividem os pontos (A7).</p> : null}
+                {isPts(mark) ? (
+                  <div className="ml-10 mt-1 flex items-center gap-2 text-xs text-ink-3">
+                    <input
+                      className="input h-8 w-20"
+                      inputMode="decimal"
+                      placeholder="pontos"
+                      value={pts[id] ?? ""}
+                      onChange={(ev) => { setPts({ ...pts, [id]: ev.target.value }); setDirty(true); }}
+                    />
+                    {mark === "DPI" ? "pontos de penalidade a somar (decisão do júri)" : "pontuação final dada pelo júri"}
+                  </div>
+                ) : null}
               </div>
             );
           })}
@@ -308,7 +371,7 @@ function RaceEditor() {
             <div className="card divide-y divide-line">
               {coded.map((e) => {
                 const code = codes[e.id];
-                const needsPts = (POINTS_CODES as readonly string[]).includes(code);
+                const needsPts = isPts(code);
                 return (
                   <div key={e.id} className="flex flex-wrap items-center gap-2 px-3 py-1.5">
                     <span className="w-12 rounded bg-red-50 py-0.5 text-center text-xs font-bold text-flag">{code}</span>

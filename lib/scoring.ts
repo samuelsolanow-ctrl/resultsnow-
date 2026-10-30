@@ -1,12 +1,21 @@
 // Sistema de pontuação baixa — RRS Apêndice A
 import type { DiscardRule, EntryRow, RaceRow, ResultRow } from "./types";
 
-/** Códigos que valem "inscritos na série + 1" */
-export const PENALTY_CODES = ["DNC", "DNS", "OCS", "DNF", "RET", "DSQ", "BFD", "UFD", "NSC", "DNE"] as const;
-/** Códigos com pontuação informada pela comissão / júri */
-export const POINTS_CODES = ["RDG", "DPI", "SCP", "ZFP"] as const;
-/** Não descartáveis (A5.3 / regra 90.3) */
-export const NON_DISCARDABLE = ["DNE"];
+/** A5.2: valem "inscritos na série + 1" */
+export const PENALTY_CODES = ["DNC", "DNS", "OCS", "DNF", "RET", "DSQ", "BFD", "UFD", "NSC", "DNE", "DGM"] as const;
+/** Barco que cruzou a linha e mantém o lugar (A6 não move os outros) */
+export const KEEP_PLACE_CODES = ["SCP", "ZFP", "DPI", "RDG"] as const;
+/** Códigos com pontos informados pelo júri */
+export const POINTS_CODES = ["RDG", "DPI"] as const;
+/** Não descartáveis — regra 90.3(b) */
+export const NON_DISCARDABLE = ["DNE", "DGM"];
+
+const round1 = (x: number) => Math.round(x * 10 + 1e-9) / 10;
+
+/** Regra 44.3(c) / 30.2: 20% da pontuação de DNF, décimo mais próximo (0,05 para cima), sem passar de DNF */
+export function percentPenalty(placePoints: number, dnfPoints: number): number {
+  return Math.min(round1(placePoints + round1(0.2 * dnfPoints)), dnfPoints);
+}
 
 export const CODE_LABELS: Record<string, string> = {
   DNC: "Não largou nem foi à área de largada",
@@ -19,10 +28,11 @@ export const CODE_LABELS: Record<string, string> = {
   UFD: "Desclassificado — bandeira U",
   NSC: "Não completou o percurso",
   DNE: "Desclassificação não descartável",
+  DGM: "Desclassificação por conduta grave (não descartável)",
   RDG: "Reparação concedida",
   DPI: "Penalidade discricionária",
-  SCP: "Penalidade de pontuação",
-  ZFP: "Penalidade de 20%",
+  SCP: "Penalidade de pontuação, 20% (regra 44.3)",
+  ZFP: "Penalidade de 20%, bandeira Z (regra 30.2)",
 };
 
 export interface Cell {
@@ -61,7 +71,19 @@ export function computeStandings(
   const penalty = n + 1;
   const sortedRaces = [...races].sort((a, b) => a.number - b.number);
   const byKey = new Map<string, ResultRow>();
-  for (const r of results) byKey.set(`${r.race_id}:${r.entry_id}`, r);
+  // A7: barcos empatados na chegada (mesma posição) dividem os pontos
+  const tieCount = new Map<string, number>();
+  for (const r of results) {
+    byKey.set(`${r.race_id}:${r.entry_id}`, r);
+    if (r.position != null) {
+      const k = `${r.race_id}:${r.position}`;
+      tieCount.set(k, (tieCount.get(k) ?? 0) + 1);
+    }
+  }
+  const placePoints = (r: ResultRow) => {
+    const k = tieCount.get(`${r.race_id}:${r.position}`) ?? 1;
+    return r.position! + (k - 1) / 2;
+  };
   const nDiscards = discardsFor(sortedRaces.length, rules);
 
   const rows = entries.map((entry) => {
@@ -72,14 +94,21 @@ export function computeStandings(
       let code: string | null = "DNC";
       if (r) {
         code = r.code ? r.code.toUpperCase() : null;
-        if (code && (POINTS_CODES as readonly string[]).includes(code)) {
-          points = r.points ?? r.position ?? penalty;
-          label = `${code} ${fmt(points)}`;
+        const base = r.position != null ? placePoints(r) : penalty;
+        if (code === "SCP" || code === "ZFP") {
+          points = percentPenalty(base, penalty);
+          label = `${fmt(points)} ${code}`;
+        } else if (code === "DPI") {
+          points = round1(base + (r.points ?? 0));
+          label = `${fmt(points)} DPI`;
+        } else if (code === "RDG") {
+          points = r.points ?? base;
+          label = `${fmt(points)} RDG`;
         } else if (code) {
           points = penalty;
           label = code;
         } else if (r.position != null) {
-          points = r.position;
+          points = base;
           label = fmt(points);
         }
       }

@@ -25,9 +25,9 @@ export function raceShareText(opts: {
   const { eventName, className, raceNumber, entries, results, standings, url, top = 10 } = opts;
   const byId = new Map(entries.map((e) => [e.id, e]));
   const finishers = results
-    .filter((r) => r.position != null && !r.code)
+    .filter((r) => r.position != null)
     .sort((a, b) => a.position! - b.position!);
-  const coded = results.filter((r) => r.code && r.code !== "DNC");
+  const coded = results.filter((r) => r.position == null && r.code && r.code !== "DNC");
 
   const lines: string[] = [];
   lines.push(`⛵ *${eventName}*`);
@@ -35,7 +35,7 @@ export function raceShareText(opts: {
   lines.push("");
   for (const r of finishers.slice(0, top)) {
     const e = byId.get(r.entry_id);
-    if (e) lines.push(`${medal(r.position!)} ${e.sail_number} · ${e.helm_name}`);
+    if (e) lines.push(`${medal(r.position!)} ${e.sail_number} · ${e.helm_name}${r.code ? ` (${r.code})` : ""}`);
   }
   if (finishers.length > top) lines.push(`… +${finishers.length - top} barcos`);
   if (coded.length) {

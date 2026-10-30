@@ -33,7 +33,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ raceId: 
   const allResults = races.flatMap((r: { results: ResultRow[] }) => r.results ?? []) as ResultRow[];
   const raceResults = allResults.filter((r) => r.race_id === race.id);
   const finishers = raceResults
-    .filter((r) => r.position != null && !r.code)
+    .filter((r) => r.position != null)
     .sort((a, b) => a.position! - b.position!);
   const standings = computeStandings(entries, races, allResults, cls.discard_rules ?? []);
 
@@ -86,7 +86,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ raceId: 
           <Col title={`REGATA ${race.number}`}>
             {finishers.slice(0, top).map((r) => {
               const e = byId.get(r.entry_id);
-              return <Row key={r.entry_id} pos={String(r.position)} sail={e?.sail_number ?? ""} name={e?.helm_name ?? ""} hi={r.position! <= 3} />;
+              return <Row key={r.entry_id} pos={String(r.position)} sail={e?.sail_number ?? ""} name={`${e?.helm_name ?? ""}${r.code ? ` (${r.code})` : ""}`} hi={r.position! <= 3} />;
             })}
           </Col>
           <Col title="GERAL">
