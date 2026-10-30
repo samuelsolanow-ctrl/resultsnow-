@@ -37,6 +37,18 @@ function Dashboard({ user, master }: { user: string; master: boolean }) {
     load();
   }, [load]);
 
+  const [seeding, setSeeding] = useState(false);
+  async function seed(create: boolean) {
+    if (!create && !confirm("Apagar os eventos de teste?")) return;
+    setSeeding(true);
+    setErr(null);
+    const res = await fetch("/api/seed", { method: create ? "POST" : "DELETE" });
+    const json = await res.json().catch(() => ({}));
+    setSeeding(false);
+    if (!res.ok) return setErr(json.error ?? "Não foi possível.");
+    load();
+  }
+
   async function remove(ev: EventRow) {
     if (!confirm(`Apagar "${ev.name}"?\n\nSai do site com classes, inscritos e todos os resultados. Não dá para desfazer.`)) return;
     const { error } = await db.from("events").delete().eq("id", ev.id);
@@ -100,6 +112,18 @@ function Dashboard({ user, master }: { user: string; master: boolean }) {
           <button className="btn-primary" disabled={busy}>Criar evento</button>
         </div>
       </form>
+
+      {master ? (
+        <div className="card mb-6 flex flex-wrap items-center gap-2 border-dashed p-3">
+          <p className="min-w-0 flex-1 text-sm text-ink-2">
+            <b>Eventos de teste</b> com nomes fictícios, regatas, divisões, avisos, protestos e ranking — para ver como fica.
+          </p>
+          <button className="btn-primary" disabled={seeding} onClick={() => seed(true)}>
+            {seeding ? "Criando…" : "Criar eventos de teste"}
+          </button>
+          <button className="btn-ghost" disabled={seeding} onClick={() => seed(false)}>Apagar teste</button>
+        </div>
+      ) : null}
 
       <div className="space-y-2">
         {events.map((ev) => (
