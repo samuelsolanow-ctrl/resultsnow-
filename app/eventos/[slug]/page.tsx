@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import BackLink from "@/components/BackLink";
 import EventResults, { type ClassView } from "@/components/EventResults";
 import ShareEvent from "@/components/ShareEvent";
 import { formatDates, getEventBySlug, isPast, standingsFor } from "@/lib/data";
@@ -57,9 +58,7 @@ export default async function EventPage({ params }: Props) {
         ) : null}
         <div className="absolute inset-0 bg-gradient-to-t from-night/90 via-night/25 to-transparent" />
         <div className="wrap absolute inset-x-0 top-0 pt-3">
-          <Link href="/" className="inline-flex h-9 items-center gap-1 rounded-full bg-night/60 pl-2.5 pr-3.5 text-sm font-semibold text-white backdrop-blur hover:bg-night/80">
-            <span aria-hidden>←</span> Eventos
-          </Link>
+          <BackLink href="/">Eventos</BackLink>
         </div>
         <div className="wrap absolute inset-x-0 bottom-0 pb-5 text-white">
           <span className="text-[11px] font-bold uppercase tracking-widest text-white/75">

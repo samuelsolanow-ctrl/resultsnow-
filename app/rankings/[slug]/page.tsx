@@ -23,9 +23,7 @@ export default async function RankingPage({ params }: Props) {
     <div>
       <div className="cover-default">
         <div className="wrap py-8 sm:py-12">
-          <Link href="/" className="inline-flex h-9 items-center gap-1 rounded-full bg-night/60 pl-2.5 pr-3.5 text-sm font-semibold text-white hover:bg-night/80">
-            ← Eventos
-          </Link>
+          <BackLink href="/">Eventos</BackLink>
           <p className="mt-4 text-[11px] font-bold uppercase tracking-widest text-sky">Ranking</p>
           <h1 className="font-display text-3xl font-bold leading-tight text-white sm:text-5xl">{c.name}</h1>
           <p className="mt-1 text-sm text-white/70">

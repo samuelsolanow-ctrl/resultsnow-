@@ -31,27 +31,23 @@ export function raceShareText(opts: {
 
   const lines: string[] = [];
   lines.push(`⛵ *${eventName}*`);
-  lines.push(`*${className} · Regata ${raceNumber}*`);
+  lines.push(`*${className} · Geral após R${raceNumber}*`);
   lines.push("");
-  for (const r of finishers.slice(0, top)) {
+  for (const s of standings.slice(0, top)) lines.push(`${medal(s.rank)} ${s.entry.helm_name} · ${s.net} pts`);
+  if (standings.length > top) lines.push(`… +${standings.length - top} barcos`);
+  lines.push("");
+  lines.push(`🏁 *Regata ${raceNumber}*`);
+  for (const r of finishers.slice(0, 3)) {
     const e = byId.get(r.entry_id);
-    if (e) lines.push(`${medal(r.position!)} ${e.sail_number} · ${e.helm_name}${r.code ? ` (${r.code})` : ""}`);
+    if (e) lines.push(`${r.position}º ${e.sail_number} · ${e.helm_name}${r.code ? ` (${r.code})` : ""}`);
   }
-  if (finishers.length > top) lines.push(`… +${finishers.length - top} barcos`);
   if (coded.length) {
-    lines.push("");
     const groups = new Map<string, string[]>();
     for (const r of coded) {
       const e = byId.get(r.entry_id);
-      if (!e) continue;
-      groups.set(r.code!, [...(groups.get(r.code!) ?? []), e.sail_number]);
+      if (e) groups.set(r.code!, [...(groups.get(r.code!) ?? []), e.sail_number]);
     }
     for (const [code, sails] of groups) lines.push(`${code}: ${sails.join(", ")}`);
-  }
-  if (standings.length) {
-    lines.push("");
-    lines.push(`📊 *Geral após R${raceNumber}*`);
-    for (const s of standings.slice(0, top)) lines.push(`${s.rank}. ${s.entry.helm_name} · ${s.net} pts`);
   }
   lines.push("");
   lines.push(`Resultados completos: ${url}`);

@@ -29,24 +29,29 @@ export default function RaceShare(props: {
     standings: props.standings,
     url,
   });
-  const [imgSrc] = useState(() => `/api/card/${props.raceId}?v=${Date.now()}`);
-  const [file, setFile] = useState<File | null>(null);
+  const [stamp] = useState(() => Date.now());
+  const [mode, setMode] = useState<"geral" | "regata">("geral");
+  const imgSrc = `/api/card/${props.raceId}?modo=${mode}&v=${stamp}`;
+  const [files, setFiles] = useState<Record<string, File>>({});
+  const file = files[mode] ?? null;
   const [copied, setCopied] = useState(false);
 
   // baixa a imagem antes, para o compartilhar abrir na hora do toque (iPhone exige)
   useEffect(() => {
+    if (files[mode]) return;
     let alive = true;
+    const name = `${props.className}-${mode === "geral" ? `Geral-R${props.raceNumber}` : `R${props.raceNumber}`}.png`.replace(/\s+/g, "_");
     fetch(imgSrc)
       .then((r) => (r.ok ? r.blob() : null))
       .then((b) => {
-        if (alive && b) setFile(new File([b], `${props.className}-R${props.raceNumber}.png`.replace(/\s+/g, "_"), { type: "image/png" }));
+        if (alive && b) setFiles((f) => ({ ...f, [mode]: new File([b], name, { type: "image/png" }) }));
       })
       .catch(() => null);
     return () => {
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [mode]);
 
   const canShareFile = typeof navigator !== "undefined" && !!file && !!navigator.canShare?.({ files: [file] });
 
@@ -87,9 +92,21 @@ export default function RaceShare(props: {
           <button onClick={props.onClose} className="h-9 w-9 rounded-lg text-xl text-ink-3 hover:bg-paper" aria-label="Fechar">×</button>
         </div>
 
-        <div className="mt-4 overflow-hidden rounded-xl border border-line bg-night">
+        <div className="mt-4 grid grid-cols-2 gap-1 rounded-lg bg-paper p-1">
+          {(["geral", "regata"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={`h-9 rounded-md text-sm font-semibold ${mode === m ? "bg-white text-ink shadow-sm" : "text-ink-3"}`}
+            >
+              {m === "geral" ? "Geral (acumulado)" : `Só a R${props.raceNumber}`}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-3 max-h-[46vh] overflow-y-auto rounded-xl border border-line bg-white">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={imgSrc} alt="Imagem do resultado" className="aspect-[4/5] w-full object-cover" />
+          <img key={imgSrc} src={imgSrc} alt="Imagem do resultado" className="w-full" />
         </div>
 
         <div className="mt-4 grid gap-2">

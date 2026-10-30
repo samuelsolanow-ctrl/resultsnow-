@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import BackLink from "@/components/BackLink";
 import Flags from "@/components/Flags";
 import RegistrationForm from "@/components/RegistrationForm";
 import { formatDates } from "@/lib/data";
@@ -42,6 +43,9 @@ export default async function RegistrationPage({ params }: Props) {
       </div>
 
       <div className="wrap max-w-2xl py-5 sm:py-8">
+        <div className="mb-4">
+          <BackLink href={`/eventos/${ev.slug}`}>Evento</BackLink>
+        </div>
         {ev.registration_open && ev.classes.length ? (
           <RegistrationForm slug={ev.slug} classes={ev.classes.map((c) => ({ id: c.id, name: c.name, crew: c.crew_size }))} />
         ) : (
