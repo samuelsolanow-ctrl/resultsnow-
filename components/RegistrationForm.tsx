@@ -5,7 +5,17 @@ import { BR_STATES } from "@/lib/flags";
 
 type Cls = { id: string; name: string; crew: number };
 
-export default function RegistrationForm({ slug, classes }: { slug: string; classes: Cls[] }) {
+type Fields = { flag: "country" | "state" | "both" | "none"; club: boolean; cbvela: boolean };
+
+export default function RegistrationForm({
+  slug,
+  classes,
+  fields = { flag: "country", club: true, cbvela: true },
+}: {
+  slug: string;
+  classes: Cls[];
+  fields?: Fields;
+}) {
   const [f, setF] = useState({
     class_id: classes[0]?.id ?? "",
     sail_number: "",
@@ -66,43 +76,55 @@ export default function RegistrationForm({ slug, classes }: { slug: string; clas
         <label className="label">Numeral (nº de vela)</label>
         <input className="input" required value={f.sail_number} onChange={set("sail_number")} placeholder="BRA 215" />
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="label">País</label>
-          <input className="input uppercase" maxLength={3} value={f.country} onChange={set("country")} />
+      {fields.flag !== "none" ? (
+        <div className="grid grid-cols-2 gap-3">
+          {fields.flag !== "state" ? (
+            <div>
+              <label className="label">País</label>
+              <input className="input uppercase" maxLength={3} value={f.country} onChange={set("country")} />
+            </div>
+          ) : null}
+          {fields.flag !== "country" ? (
+            <div>
+              <label className="label">Estado</label>
+              <select className="input" value={f.state} onChange={set("state")}>
+                <option value="">—</option>
+                {BR_STATES.map((s) => <option key={s}>{s}</option>)}
+              </select>
+            </div>
+          ) : null}
         </div>
-        <div>
-          <label className="label">Estado</label>
-          <select className="input" value={f.state} onChange={set("state")}>
-            <option value="">—</option>
-            {BR_STATES.map((s) => <option key={s}>{s}</option>)}
-          </select>
-        </div>
-      </div>
+      ) : <div className="hidden sm:block" />}
       <div>
         <label className="label">{duo ? "Timoneiro" : "Velejador"}</label>
         <input className="input" required value={f.helm_name} onChange={set("helm_name")} autoComplete="name" />
       </div>
-      <div>
-        <label className="label">ID CBVela</label>
-        <input className="input" value={f.helm_cbvela} onChange={set("helm_cbvela")} placeholder="se tiver" />
-      </div>
+      {fields.cbvela ? (
+        <div>
+          <label className="label">ID CBVela</label>
+          <input className="input" value={f.helm_cbvela} onChange={set("helm_cbvela")} placeholder="se tiver" />
+        </div>
+      ) : null}
       {duo ? (
         <>
           <div>
             <label className="label">Proeiro</label>
             <input className="input" value={f.crew_name} onChange={set("crew_name")} />
           </div>
-          <div>
-            <label className="label">ID CBVela proeiro</label>
-            <input className="input" value={f.crew_cbvela} onChange={set("crew_cbvela")} placeholder="se tiver" />
-          </div>
+          {fields.cbvela ? (
+            <div>
+              <label className="label">ID CBVela proeiro</label>
+              <input className="input" value={f.crew_cbvela} onChange={set("crew_cbvela")} placeholder="se tiver" />
+            </div>
+          ) : null}
         </>
       ) : null}
-      <div>
-        <label className="label">Clube</label>
-        <input className="input" required value={f.club} onChange={set("club")} placeholder="YCSA, ICRJ, VDS…" />
-      </div>
+      {fields.club ? (
+        <div>
+          <label className="label">Clube</label>
+          <input className="input" required value={f.club} onChange={set("club")} placeholder="YCSA, ICRJ, VDS…" />
+        </div>
+      ) : null}
       <div>
         <label className="label">Divisão (se houver)</label>
         <input className="input" value={f.division} onChange={set("division")} placeholder="Feminino, Master, Sub-19…" />

@@ -14,12 +14,13 @@ export async function POST(req: Request) {
   const b = await req.json().catch(() => null);
   if (!b || b.website) return NextResponse.json({ ok: true }); // robô
   const sb = supabaseAdmin();
-  const { data: ev } = await sb.from("events").select("id, registration_open").eq("slug", String(b.slug ?? "")).maybeSingle();
+  const { data: ev } = await sb.from("events").select("*").eq("slug", String(b.slug ?? "")).maybeSingle();
   if (!ev?.registration_open) return NextResponse.json({ error: "Inscrições fechadas." }, { status: 400 });
   const { data: cls } = await sb.from("classes").select("id, crew_size").eq("id", String(b.class_id ?? "")).eq("event_id", ev.id).maybeSingle();
   if (!cls) return NextResponse.json({ error: "Classe inválida." }, { status: 400 });
-  if (!clip(b.sail_number) || !clip(b.helm_name) || !clip(b.club)) {
-    return NextResponse.json({ error: "Preencha numeral, nome e clube." }, { status: 400 });
+  const needClub = ev.show_club !== false;
+  if (!clip(b.sail_number) || !clip(b.helm_name) || (needClub && !clip(b.club))) {
+    return NextResponse.json({ error: needClub ? "Preencha numeral, nome e clube." : "Preencha numeral e nome." }, { status: 400 });
   }
   // numeral repetido na mesma classe
   const digits = (x: string) => x.replace(/\D/g, "").replace(/^0+(?=\d)/, "");

@@ -14,6 +14,9 @@ export type RegEvent = {
   end_date: string | null;
   cover_url: string | null;
   registration_open: boolean;
+  flag_mode?: string;
+  show_club?: boolean;
+  show_cbvela?: boolean;
   classes: { id: string; name: string; crew_size: number; entries: EntryRow[] }[];
 };
 
@@ -21,7 +24,7 @@ export const getEventForRegistration = cache(async (slug: string): Promise<RegEv
   try {
     const { data } = await supabaseAdmin()
       .from("events")
-      .select("id, name, slug, venue, start_date, end_date, cover_url, registration_open, classes(id, name, crew_size, sort_order, entries(*))")
+      .select("*, classes(id, name, crew_size, sort_order, entries(*))")
       .eq("slug", slug)
       .maybeSingle();
     if (!data) return null;

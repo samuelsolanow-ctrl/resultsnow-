@@ -4,7 +4,7 @@ import { useState } from "react";
 import { WhatsIcon } from "./RaceShare";
 import { db } from "@/lib/adminDb";
 
-/** Cartão do painel: link de inscrição pronto para mandar no WhatsApp */
+/** Como os atletas entram no evento: pelo link (cada um se inscreve) ou manual (o organizador inscreve) */
 export default function RegistrationLink({
   eventId,
   name,
@@ -12,6 +12,7 @@ export default function RegistrationLink({
   open,
   hasClasses,
   onChange,
+  onManual,
 }: {
   eventId: string;
   name: string;
@@ -19,21 +20,23 @@ export default function RegistrationLink({
   open: boolean;
   hasClasses: boolean;
   onChange: () => void;
+  onManual: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const url = () => `${window.location.origin}/eventos/${slug}/inscricao`;
 
-  async function toggle() {
+  async function setMode(link: boolean) {
+    if (link === open) return;
     setBusy(true);
-    await db.from("events").update({ registration_open: !open }).eq("id", eventId);
+    await db.from("events").update({ registration_open: link }).eq("id", eventId);
     setBusy(false);
     onChange();
   }
 
   function whatsapp() {
-    const text = `⛵ *${name}*\nInscrições abertas! Faça a sua aqui (numeral, nome e clube):\n${url()}`;
+    const text = `⛵ *${name}*\nInscrições abertas! Faça a sua aqui:\n${url()}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
   }
 
@@ -48,31 +51,38 @@ export default function RegistrationLink({
     setQr(await QR.toDataURL(url(), { width: 1024, margin: 2, color: { dark: "#2A2F35", light: "#FFFFFF" } }));
   }
 
+  const opt = (active: boolean) =>
+    `flex flex-1 flex-col items-start rounded-lg border-2 p-3 text-left transition ${
+      active ? "border-sea bg-sea-50" : "border-line bg-white hover:border-ink-3"
+    }`;
+
   return (
-    <div className={`card mb-4 overflow-hidden ${open ? "border-sea/40" : ""}`}>
-      <div className="flex flex-wrap items-center gap-3 p-4">
-        <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-2 font-display text-xl font-bold">
-            <span className={`h-2.5 w-2.5 rounded-full ${open ? "bg-[#25D366]" : "bg-ink-3/40"}`} />
-            Inscrições {open ? "abertas" : "fechadas"}
-          </p>
-          <p className="text-sm text-ink-3">
-            {open
-              ? "Mande o link: cada velejador coloca numeral, nome e clube e já entra na lista."
-              : "Ninguém consegue se inscrever pelo link agora."}
-          </p>
+    <div className="card mb-4 overflow-hidden">
+      <div className="p-4">
+        <p className="mb-2 font-display text-xl font-bold">Inscrições</p>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <button disabled={busy} onClick={() => setMode(true)} className={opt(open)}>
+            <span className="flex items-center gap-2 font-semibold">
+              <Radio on={open} /> Velejadores pelo link
+            </span>
+            <span className="ml-7 text-xs text-ink-3">Cada um se inscreve sozinho e já entra na lista.</span>
+          </button>
+          <button disabled={busy} onClick={() => setMode(false)} className={opt(!open)}>
+            <span className="flex items-center gap-2 font-semibold">
+              <Radio on={!open} /> Eu inscrevo manualmente
+            </span>
+            <span className="ml-7 text-xs text-ink-3">Você cadastra os atletas (um a um ou colando a lista).</span>
+          </button>
         </div>
-        <button onClick={toggle} disabled={busy} className="btn-ghost">
-          {open ? "Fechar inscrições" : "Abrir inscrições"}
-        </button>
       </div>
-      {open ? (
-        <div className="border-t border-line bg-paper p-4">
-          {!hasClasses ? (
-            <p className="mb-3 rounded-lg bg-amber-50 p-2 text-sm text-amber-800">
-              Cadastre ao menos uma classe na aba <b>Classes</b> antes de mandar o link.
-            </p>
-          ) : null}
+
+      <div className="border-t border-line bg-paper p-4">
+        {!hasClasses ? (
+          <p className="mb-3 rounded-lg bg-amber-50 p-2 text-sm text-amber-800">
+            Primeiro cadastre ao menos uma classe na aba <b>Classes</b>.
+          </p>
+        ) : null}
+        {open ? (
           <div className="flex flex-wrap gap-2">
             <button onClick={whatsapp} className="btn bg-[#25D366] text-white hover:bg-[#1ebe5a]">
               <WhatsIcon /> Mandar link no WhatsApp
@@ -81,8 +91,12 @@ export default function RegistrationLink({
             <button onClick={openQr} className="btn-ghost">QR</button>
             <a href={`/eventos/${slug}/inscricao`} target="_blank" className="btn-ghost">Ver página ↗</a>
           </div>
-        </div>
-      ) : null}
+        ) : (
+          <button onClick={onManual} className="btn-primary">
+            + Inscrever atletas
+          </button>
+        )}
+      </div>
 
       {qr ? (
         <div className="fixed inset-0 z-40 grid place-items-center bg-night/60 p-4 backdrop-blur-sm" onClick={() => setQr(null)}>
@@ -99,5 +113,13 @@ export default function RegistrationLink({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function Radio({ on }: { on: boolean }) {
+  return (
+    <span className={`grid h-5 w-5 place-items-center rounded-full border-2 ${on ? "border-sea" : "border-ink-3/40"}`}>
+      {on ? <span className="h-2.5 w-2.5 rounded-full bg-sea" /> : null}
+    </span>
   );
 }

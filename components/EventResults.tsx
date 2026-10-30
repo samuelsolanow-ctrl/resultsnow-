@@ -38,6 +38,8 @@ export default function EventResults({
   updated,
   notices = [],
   protests = [],
+  showClub = true,
+  showCbvela = true,
 }: {
   eventName: string;
   subtitle: string;
@@ -46,6 +48,8 @@ export default function EventResults({
   updated: string;
   notices?: NoticeRow[];
   protests?: ProtestRow[];
+  showClub?: boolean;
+  showCbvela?: boolean;
 }) {
   const [tab, setTab] = useState<"res" | "avisos" | "protestos">("res");
   const [activeId, setActiveId] = useState(classes[0]?.id);
@@ -118,6 +122,8 @@ export default function EventResults({
         className: division ? `${cls.name} · ${division}` : cls.name,
         info: infoText(cls),
         flagMode,
+        showClub,
+        showCbvela,
         crewSize: cls.crewSize,
         races: cls.races,
         standings: shown,
@@ -215,6 +221,8 @@ export default function EventResults({
                 crewSize={cls.crewSize}
                 followed={followed}
                 onFollow={toggleFollow}
+                showClub={showClub}
+                showCbvela={showCbvela}
               />
             ) : (
               <p className="p-4 text-sm text-ink-3">Nenhum inscrito ainda.</p>

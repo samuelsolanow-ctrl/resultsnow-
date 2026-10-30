@@ -67,7 +67,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ raceId: 
   if (!race) return new Response("Regata não encontrada", { status: 404 });
   const { data: cls } = await sb
     .from("classes")
-    .select("*, events(name, venue, start_date, end_date), entries(*), races(*, results(*))")
+    .select("*, events(*), entries(*), races(*, results(*))")
     .eq("id", race.class_id)
     .single();
   if (!cls) return new Response("Classe não encontrada", { status: 404 });
@@ -86,7 +86,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ raceId: 
   const finishers = raceRes.filter((r) => r.position != null).sort((a, b) => a.position! - b.position!);
   const penalized = raceRes.filter((r) => r.position == null && r.code && r.code !== "DNC");
 
-  const ev = cls.events as { name: string; venue: string | null };
+  const ev = cls.events as { name: string; venue: string | null; show_club?: boolean };
   const fonts = await loadFonts();
   const logo = new URL("/logo-horizontal.png", req.url).toString();
   const discards = standings[0]?.cells.filter((c) => c.discarded).length ?? 0;
@@ -170,7 +170,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ raceId: 
                 {s.entry.helm_name}
               </div>
               <div style={{ display: "flex", fontSize: 17, color: MUTED, whiteSpace: "nowrap", overflow: "hidden" }}>
-                {[s.entry.sail_number, s.entry.club].filter(Boolean).join(" · ")}
+                {[s.entry.sail_number, ev?.show_club !== false ? s.entry.club : null].filter(Boolean).join(" · ")}
               </div>
             </div>
             {s.cells.map((c) => (
@@ -204,7 +204,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ raceId: 
         {th("#", 90)}
         {th("NUMERAL", 180, "flex-start")}
         {th("VELEJADOR", 520, "flex-start")}
-        {th("CLUBE", 194, "flex-start")}
+        {ev?.show_club !== false ? th("CLUBE", 194, "flex-start") : null}
       </div>
       {finishers.slice(0, MAX_ROWS).map((r, i) => {
         const e = byId.get(r.entry_id);
@@ -217,7 +217,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ raceId: 
             <div style={{ display: "flex", width: 520, fontSize: 25, fontWeight: 700, color: INK, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {`${e?.helm_name ?? ""}${r.code ? ` (${r.code})` : ""}`}
             </div>
-            <div style={{ display: "flex", width: 194, fontSize: 20, color: MUTED, whiteSpace: "nowrap", overflow: "hidden" }}>{e?.club ?? ""}</div>
+            {ev?.show_club !== false ? (
+              <div style={{ display: "flex", width: 194, fontSize: 20, color: MUTED, whiteSpace: "nowrap", overflow: "hidden" }}>{e?.club ?? ""}</div>
+            ) : null}
           </div>
         );
       })}

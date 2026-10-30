@@ -95,6 +95,7 @@ function EventAdmin() {
         open={!!ev.registration_open}
         hasClasses={classes.length > 0}
         onChange={loadEvent}
+        onManual={() => setTab("inscritos")}
       />
 
       {ev.status !== "draft" ? (
@@ -128,7 +129,11 @@ function EventAdmin() {
         <>
           <ClassPicker classes={classes} value={classId} onChange={setClassId} />
           {tab === "inscritos" && classId ? (
-            <EntriesTab cls={classes.find((c) => c.id === classId)!} />
+            <EntriesTab
+              cls={classes.find((c) => c.id === classId)!}
+              show={{ flag: ev.flag_mode, club: ev.show_club !== false, cbvela: ev.show_cbvela !== false }}
+              linkMode={!!ev.registration_open}
+            />
           ) : null}
           {tab === "regatas" && classId ? <RacesTab cls={classes.find((c) => c.id === classId)!} /> : null}
         </>
@@ -178,7 +183,8 @@ function EventForm({ ev, onSaved }: { ev: EventRow; onSaved: () => void }) {
         flag_mode: next.flag_mode,
         status: next.status,
         cover_url: next.cover_url,
-        registration_open: !!next.registration_open,
+        ...(next.show_club !== undefined ? { show_club: next.show_club } : {}),
+        ...(next.show_cbvela !== undefined ? { show_cbvela: next.show_cbvela } : {}),
       })
       .eq("id", ev.id);
     setMsg(error ? error.message : "Salvo.");
@@ -242,13 +248,43 @@ function EventForm({ ev, onSaved }: { ev: EventRow; onSaved: () => void }) {
           <label className="label">Término</label>
           <input className="input" type="date" value={f.end_date ?? ""} onChange={(e) => setF({ ...f, end_date: e.target.value })} />
         </div>
-        <div>
-          <label className="label">Bandeira na súmula</label>
-          <select className="input" value={f.flag_mode} onChange={(e) => setF({ ...f, flag_mode: e.target.value as FlagMode })}>
-            <option value="country">País</option>
-            <option value="state">Estado</option>
-            <option value="both">País e estado</option>
-          </select>
+        <div className="rounded-lg border border-line bg-paper p-3 sm:col-span-2">
+          <p className="text-sm font-semibold">O que aparece na súmula</p>
+          <p className="mb-3 text-xs text-ink-3">Posição, numeral, nome e resultados sempre aparecem. O resto você escolhe.</p>
+          <label className="label">Bandeira</label>
+          <div className="mb-3 grid grid-cols-2 gap-1 sm:grid-cols-4">
+            {([
+              ["country", "País"],
+              ["state", "Estado"],
+              ["both", "País e estado"],
+              ["none", "Nenhuma"],
+            ] as [FlagMode, string][]).map(([v, label]) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setF({ ...f, flag_mode: v })}
+                className={`h-9 rounded-md border text-sm font-semibold ${f.flag_mode === v ? "border-sea bg-sea text-white" : "border-line bg-white text-ink-2"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-4">
+            {([
+              ["show_club", "Clube"],
+              ["show_cbvela", "ID CBVela"],
+            ] as const).map(([k, label]) => (
+              <label key={k} className="flex cursor-pointer items-center gap-2 text-sm font-semibold">
+                <input
+                  type="checkbox"
+                  className="h-5 w-5 accent-[#1F7F96]"
+                  checked={f[k] !== false}
+                  onChange={(e) => setF({ ...f, [k]: e.target.checked })}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
         </div>
         <div>
           <label className="label">Situação</label>
@@ -258,18 +294,6 @@ function EventForm({ ev, onSaved }: { ev: EventRow; onSaved: () => void }) {
             <option value="finished">Encerrado (vai para passados)</option>
           </select>
         </div>
-        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-paper p-3 sm:col-span-2">
-          <input
-            type="checkbox"
-            className="mt-0.5 h-5 w-5 accent-[#1F7F96]"
-            checked={!!f.registration_open}
-            onChange={(e) => setF({ ...f, registration_open: e.target.checked })}
-          />
-          <span>
-            <span className="block text-sm font-semibold">Inscrições abertas pelo link</span>
-            <span className="block text-xs text-ink-3">Aparece o botão “Inscrever-se” na página do evento. Você aprova cada inscrição na aba Inscritos.</span>
-          </span>
-        </label>
         <div className="flex items-center gap-3 sm:col-span-2">
           <button className="btn-primary" onClick={() => save()}>Salvar</button>
           {msg ? <span className="text-sm text-ink-3">{msg}</span> : null}
@@ -376,7 +400,15 @@ function ClassesTab({ eventId, classes, onChange }: { eventId: string; classes: 
 const emptyEntry = { sail_number: "", country: "BRA", state: "", club: "", helm_name: "", helm_cbvela: "", crew_name: "", crew_cbvela: "", division: "" };
 const DIVISION_HINTS = ["Feminino", "Masculino", "Master", "Grand Master", "Sub-21", "Sub-19", "Sub-17", "Sub-15", "Estreante", "Veterano"];
 
-function EntriesTab({ cls }: { cls: ClassRow }) {
+function EntriesTab({
+  cls,
+  show,
+  linkMode,
+}: {
+  cls: ClassRow;
+  show: { flag: FlagMode; club: boolean; cbvela: boolean };
+  linkMode: boolean;
+}) {
   const sb = db;
   const [entries, setEntries] = useState<EntryRow[]>([]);
   const [f, setF] = useState({ ...emptyEntry });
@@ -490,44 +522,57 @@ function EntriesTab({ cls }: { cls: ClassRow }) {
   return (
     <div className="space-y-4">
       <form onSubmit={save} className="card grid gap-3 p-4 sm:grid-cols-4">
-        <h2 className="font-display text-xl font-bold sm:col-span-4">{editing ? "Editar inscrito" : `Novo inscrito · ${cls.name}`}</h2>
+        <h2 className="font-display text-xl font-bold sm:col-span-4">{editing ? "Editar inscrito" : `Inscrever atleta · ${cls.name}`}</h2>
+        {!editing && linkMode ? (
+          <p className="-mt-2 text-xs text-ink-3 sm:col-span-4">As inscrições estão pelo link, mas você também pode inscrever alguém aqui.</p>
+        ) : null}
         <div>
           <label className="label">Nº de vela</label>
           <input className="input" required value={f.sail_number} onChange={(e) => setF({ ...f, sail_number: e.target.value })} placeholder="BRA 215" />
         </div>
-        <div>
-          <label className="label">País</label>
-          <input className="input uppercase" maxLength={3} value={f.country} onChange={(e) => setF({ ...f, country: e.target.value })} placeholder="BRA" />
-        </div>
-        <div>
-          <label className="label">Estado</label>
-          <select className="input" value={f.state} onChange={(e) => setF({ ...f, state: e.target.value })}>
-            <option value="">—</option>
-            {BR_STATES.map((s) => <option key={s}>{s}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="label">Clube</label>
-          <input className="input" value={f.club} onChange={(e) => setF({ ...f, club: e.target.value })} placeholder="YCSA" />
-        </div>
-        <div className="sm:col-span-3">
+        {show.flag === "country" || show.flag === "both" ? (
+          <div>
+            <label className="label">País</label>
+            <input className="input uppercase" maxLength={3} value={f.country} onChange={(e) => setF({ ...f, country: e.target.value })} placeholder="BRA" />
+          </div>
+        ) : null}
+        {show.flag === "state" || show.flag === "both" ? (
+          <div>
+            <label className="label">Estado</label>
+            <select className="input" value={f.state} onChange={(e) => setF({ ...f, state: e.target.value })}>
+              <option value="">—</option>
+              {BR_STATES.map((s) => <option key={s}>{s}</option>)}
+            </select>
+          </div>
+        ) : null}
+        {show.club ? (
+          <div>
+            <label className="label">Clube</label>
+            <input className="input" value={f.club} onChange={(e) => setF({ ...f, club: e.target.value })} placeholder="YCSA" />
+          </div>
+        ) : null}
+        <div className={show.cbvela ? "sm:col-span-3" : "sm:col-span-4"}>
           <label className="label">{duo ? "Timoneiro" : "Velejador"}</label>
           <input className="input" required value={f.helm_name} onChange={(e) => setF({ ...f, helm_name: e.target.value })} />
         </div>
-        <div>
-          <label className="label">ID CBVela</label>
-          <input className="input" value={f.helm_cbvela} onChange={(e) => setF({ ...f, helm_cbvela: e.target.value })} placeholder="opcional" />
-        </div>
+        {show.cbvela ? (
+          <div>
+            <label className="label">ID CBVela</label>
+            <input className="input" value={f.helm_cbvela} onChange={(e) => setF({ ...f, helm_cbvela: e.target.value })} placeholder="opcional" />
+          </div>
+        ) : null}
         {duo ? (
           <>
-            <div className="sm:col-span-3">
+            <div className={show.cbvela ? "sm:col-span-3" : "sm:col-span-4"}>
               <label className="label">Proeiro</label>
               <input className="input" value={f.crew_name} onChange={(e) => setF({ ...f, crew_name: e.target.value })} />
             </div>
-            <div>
-              <label className="label">ID CBVela proeiro</label>
-              <input className="input" value={f.crew_cbvela} onChange={(e) => setF({ ...f, crew_cbvela: e.target.value })} placeholder="opcional" />
-            </div>
+            {show.cbvela ? (
+              <div>
+                <label className="label">ID CBVela proeiro</label>
+                <input className="input" value={f.crew_cbvela} onChange={(e) => setF({ ...f, crew_cbvela: e.target.value })} placeholder="opcional" />
+              </div>
+            ) : null}
           </>
         ) : null}
         <div className="sm:col-span-2">

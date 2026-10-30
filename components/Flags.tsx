@@ -2,6 +2,7 @@ import { countryEmoji } from "@/lib/flags";
 import type { FlagMode } from "@/lib/types";
 
 export default function Flags({ mode, country, state }: { mode: FlagMode; country: string | null; state: string | null }) {
+  if (mode === "none") return null;
   const showCountry = mode !== "state" && country;
   const showState = mode !== "country" && state;
   return (

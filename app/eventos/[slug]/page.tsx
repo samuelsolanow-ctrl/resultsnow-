@@ -84,6 +84,8 @@ export default async function EventPage({ params }: Props) {
           classes={classes}
           updated={updated}
           notices={ev.notices}
+          showClub={ev.show_club !== false}
+          showCbvela={ev.show_cbvela !== false}
           protests={ev.protests}
         />
       </div>

@@ -15,6 +15,8 @@ export default function ResultsTable({
   crewSize,
   followed = [],
   onFollow,
+  showClub = true,
+  showCbvela = true,
 }: {
   standings: Standing[];
   races: Pick<RaceRow, "id" | "number">[];
@@ -22,7 +24,10 @@ export default function ResultsTable({
   crewSize: number;
   followed?: string[];
   onFollow?: (entryId: string) => void;
+  showClub?: boolean;
+  showCbvela?: boolean;
 }) {
+  const showFlag = flagMode !== "none";
   // barcos seguidos aparecem no topo, destacados, e também na posição normal
   const pinned = standings.filter((s) => followed.includes(s.entry.id));
   const rows: { s: Standing; pin: boolean }[] = [
@@ -40,10 +45,10 @@ export default function ResultsTable({
             <th className={`${th} sticky left-10 z-[2] min-w-[150px] border-b-2 border-night bg-white sm:min-w-[200px]`}>
               {crewSize > 1 ? "Timoneiro / Proeiro" : "Velejador"}
             </th>
-            <th className={`${th} ${wide} border-b-2 border-night`}>Bandeira</th>
+            {showFlag ? <th className={`${th} ${wide} border-b-2 border-night`}>Bandeira</th> : null}
             <th className={`${th} ${wide} border-b-2 border-night`}>Nº vela</th>
-            <th className={`${th} ${wide} border-b-2 border-night`}>Clube</th>
-            <th className={`${th} ${wide} border-b-2 border-night`}>ID CBVela</th>
+            {showClub ? <th className={`${th} ${wide} border-b-2 border-night`}>Clube</th> : null}
+            {showCbvela ? <th className={`${th} ${wide} border-b-2 border-night`}>ID CBVela</th> : null}
             {races.map((r) => (
               <th key={r.id} className={`${th} border-b-2 border-night text-center`}>R{r.number}</th>
             ))}
@@ -81,18 +86,22 @@ export default function ResultsTable({
                   <div className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-ink-3 lg:hidden">
                     <Flags mode={flagMode} country={e.country} state={e.state} />
                     <span className="num font-semibold text-ink-2">{e.sail_number}</span>
-                    {e.club ? <span className="truncate">· {e.club}</span> : null}
+                    {showClub && e.club ? <span className="truncate">· {e.club}</span> : null}
                   </div>
                 </td>
-                <td className={`${td} ${wide} px-2 py-2`}>
-                  <Flags mode={flagMode} country={e.country} state={e.state} />
-                </td>
+                {showFlag ? (
+                  <td className={`${td} ${wide} px-2 py-2`}>
+                    <Flags mode={flagMode} country={e.country} state={e.state} />
+                  </td>
+                ) : null}
                 <td className={`${td} ${wide} num whitespace-nowrap px-2 py-2 font-semibold`}>{e.sail_number}</td>
-                <td className={`${td} ${wide} px-2 py-2 text-ink-2`}>{e.club ?? ""}</td>
-                <td className={`${td} ${wide} num px-2 py-2 text-xs leading-5 text-ink-2`}>
-                  <div>{e.helm_cbvela ?? "—"}</div>
-                  {dual ? <div>{e.crew_cbvela ?? "—"}</div> : null}
-                </td>
+                {showClub ? <td className={`${td} ${wide} px-2 py-2 text-ink-2`}>{e.club ?? ""}</td> : null}
+                {showCbvela ? (
+                  <td className={`${td} ${wide} num px-2 py-2 text-xs leading-5 text-ink-2`}>
+                    <div>{e.helm_cbvela ?? "—"}</div>
+                    {dual ? <div>{e.crew_cbvela ?? "—"}</div> : null}
+                  </td>
+                ) : null}
                 {s.cells.map((c) => (
                   <td
                     key={c.raceId}

@@ -1,4 +1,4 @@
-export type FlagMode = "country" | "state" | "both";
+export type FlagMode = "country" | "state" | "both" | "none";
 export type EventStatus = "draft" | "live" | "finished";
 
 export interface DiscardRule {
@@ -21,6 +21,9 @@ export interface EventRow {
   flag_mode: FlagMode;
   status: EventStatus;
   registration_open?: boolean;
+  /** o que aparece na súmula (padrão: sim) */
+  show_club?: boolean;
+  show_cbvela?: boolean;
   created_at: string;
 }
 

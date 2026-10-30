@@ -43,7 +43,15 @@ export default async function RegistrationPage({ params }: Props) {
 
       <div className="wrap max-w-2xl py-5 sm:py-8">
         {ev.registration_open && ev.classes.length ? (
-          <RegistrationForm slug={ev.slug} classes={ev.classes.map((c) => ({ id: c.id, name: c.name, crew: c.crew_size }))} />
+          <RegistrationForm
+            slug={ev.slug}
+            classes={ev.classes.map((c) => ({ id: c.id, name: c.name, crew: c.crew_size }))}
+            fields={{
+              flag: (ev.flag_mode ?? "country") as "country" | "state" | "both" | "none",
+              club: ev.show_club !== false,
+              cbvela: ev.show_cbvela !== false,
+            }}
+          />
         ) : (
           <p className="card p-4 text-ink-2">
             {ev.classes.length ? "As inscrições estão fechadas para este evento." : "A organização ainda está configurando as classes deste evento. Tente mais tarde."}
@@ -62,8 +70,8 @@ export default async function RegistrationPage({ params }: Props) {
                       <div key={e.id} className="flex items-center gap-3 px-3 py-2 text-sm">
                         <span className="num w-16 shrink-0 font-semibold">{e.sail_number}</span>
                         <span className="min-w-0 flex-1 truncate">{e.helm_name}{e.crew_name ? ` / ${e.crew_name}` : ""}</span>
-                        <span className="hidden truncate text-xs text-ink-3 sm:block">{e.club}</span>
-                        <Flags mode="country" country={e.country} state={null} />
+                        {ev.show_club !== false ? <span className="hidden truncate text-xs text-ink-3 sm:block">{e.club}</span> : null}
+                        <Flags mode={(ev.flag_mode ?? "country") as "country" | "state" | "both" | "none"} country={e.country} state={e.state} />
                       </div>
                     ))}
                   </div>

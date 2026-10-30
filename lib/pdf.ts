@@ -9,6 +9,8 @@ export type SumulaData = {
   className: string;
   info: string;
   flagMode: FlagMode;
+  showClub?: boolean;
+  showCbvela?: boolean;
   crewSize: number;
   races: Pick<RaceRow, "id" | "number">[];
   standings: Standing[];
@@ -65,42 +67,54 @@ export async function downloadSumula(d: SumulaData) {
   doc.setTextColor(100, 116, 139);
   doc.text(d.info, M + doc.getTextWidth(d.className) * (12 / 9) + 4, 38);
 
+  const showFlag = d.flagMode !== "none";
+  const showClub = d.showClub !== false;
+  const showCbvela = d.showCbvela !== false;
   const flagLabel = d.flagMode === "state" ? "UF" : d.flagMode === "both" ? "País/UF" : "País";
-  const head = [
-    "Rank",
-    flagLabel,
-    "Nº vela",
-    d.crewSize > 1 ? "Timoneiro / Proeiro" : "Velejador",
-    "Clube",
-    "ID CBVela",
-    ...d.races.map((r) => `R${r.number}`),
-    "Total",
-    "Líq.",
+  // colunas fixas conforme a escolha do organizador
+  type Col = { key: string; head: string };
+  const fixed: Col[] = [
+    { key: "rank", head: "Rank" },
+    ...(showFlag ? [{ key: "flag", head: flagLabel }] : []),
+    { key: "sail", head: "Nº vela" },
+    { key: "name", head: d.crewSize > 1 ? "Timoneiro / Proeiro" : "Velejador" },
+    ...(showClub ? [{ key: "club", head: "Clube" }] : []),
+    ...(showCbvela ? [{ key: "cbvela", head: "ID CBVela" }] : []),
   ];
+  const head = [...fixed.map((c) => c.head), ...d.races.map((r) => `R${r.number}`), "Total", "Líq."];
   const body = d.standings.map((s) => {
     const e = s.entry;
-    const flag =
-      d.flagMode === "state"
-        ? e.state ?? ""
-        : d.flagMode === "both"
-          ? [e.country, e.state].filter(Boolean).join(" / ")
-          : e.country ?? "";
     const dual = d.crewSize > 1 && e.crew_name;
+    const val: Record<string, string> = {
+      rank: String(s.rank),
+      flag: d.flagMode === "state" ? e.state ?? "" : d.flagMode === "both" ? [e.country, e.state].filter(Boolean).join(" / ") : e.country ?? "",
+      sail: e.sail_number,
+      name: dual ? `${e.helm_name}\n${e.crew_name}` : e.helm_name,
+      club: e.club ?? "",
+      cbvela: dual ? `${e.helm_cbvela ?? "—"}\n${e.crew_cbvela ?? "—"}` : e.helm_cbvela ?? "—",
+    };
     return [
-      String(s.rank),
-      flag,
-      e.sail_number,
-      dual ? `${e.helm_name}\n${e.crew_name}` : e.helm_name,
-      e.club ?? "",
-      dual ? `${e.helm_cbvela ?? "—"}\n${e.crew_cbvela ?? "—"}` : e.helm_cbvela ?? "—",
+      ...fixed.map((c) => val[c.key]),
       ...s.cells.map((c) => (c.discarded ? `(${c.label})` : c.label)),
       String(s.total),
       String(s.net),
     ];
   });
 
-  const firstRace = 6;
+  const idx = (k: string) => fixed.findIndex((c) => c.key === k);
+  const firstRace = fixed.length;
   const lastCol = head.length - 1;
+  const colStyles: Record<number, Record<string, unknown>> = {
+    [idx("rank")]: { halign: "center", fontStyle: "bold", cellWidth: 10 },
+    [idx("sail")]: { cellWidth: 17, fontStyle: "bold" },
+    [idx("name")]: { cellWidth: "auto", minCellWidth: 38 },
+    [lastCol]: { halign: "center", fontStyle: "bold" },
+    [lastCol - 1]: { halign: "center", textColor: [100, 116, 139] },
+  };
+  if (showFlag) colStyles[idx("flag")] = { halign: "center", cellWidth: d.flagMode === "both" ? 16 : 11 };
+  if (showClub) colStyles[idx("club")] = { cellWidth: "wrap" };
+  if (showCbvela) colStyles[idx("cbvela")] = { cellWidth: 17, fontSize: 7 };
+
   autoTable(doc, {
     startY: 42,
     head: [head],
@@ -110,16 +124,8 @@ export async function downloadSumula(d: SumulaData) {
     styles: { font: "helvetica", fontSize: d.races.length > 10 ? 6.5 : 8, cellPadding: 1.4, lineColor: [227, 232, 238], lineWidth: 0.2, valign: "middle", textColor: [34, 38, 43] },
     headStyles: { fillColor: [42, 47, 53], textColor: 255, fontStyle: "bold", halign: "center" },
     alternateRowStyles: { fillColor: [246, 248, 250] },
-    columnStyles: {
-      0: { halign: "center", fontStyle: "bold", cellWidth: 10 },
-      1: { halign: "center", cellWidth: d.flagMode === "both" ? 16 : 11 },
-      2: { cellWidth: 17, fontStyle: "bold" },
-      3: { cellWidth: "auto", minCellWidth: 38 },
-      4: { cellWidth: "wrap" },
-      5: { cellWidth: 17, fontSize: 7 },
-      [lastCol]: { halign: "center", fontStyle: "bold" },
-      [lastCol - 1]: { halign: "center", textColor: [100, 116, 139] },
-    },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    columnStyles: colStyles as any,
     didParseCell: (h) => {
       if (h.section !== "body") return;
       const i = h.column.index;
