@@ -29,6 +29,8 @@ export async function POST(req: Request) {
   try {
     const sb = supabaseAdmin();
     const master = isMaster(user);
+    // a coluna de ajudantes existe? (antes de rodar o SQL, segue só pelo dono)
+    const helpersReady = master ? false : !(await sb.from("events").select("helpers").limit(1)).error;
     const denied = await checkAccess(sb, user, master, table, ops);
     if (denied) return NextResponse.json({ data: null, error: { message: denied } }, { status: 403 });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -44,8 +46,11 @@ export async function POST(req: Request) {
       }
       q = q[op.m](...args);
       // organizador comum só enxerga os próprios eventos na lista do painel
-      if (!master && (table === "events" || table === "circuits") && op.m === "select" && !ops.some((o) => WRITES.has(o.m))) {
+      if (!master && table === "circuits" && op.m === "select" && !ops.some((o) => WRITES.has(o.m))) {
         q = q.ilike("organizer", user);
+      }
+      if (!master && table === "events" && op.m === "select" && !ops.some((o) => WRITES.has(o.m))) {
+        q = helpersReady ? q.or(`organizer.ilike.${user},helpers.cs.{"${user}"}`) : q.ilike("organizer", user);
       }
     }
     const { data, error, count } = await q;

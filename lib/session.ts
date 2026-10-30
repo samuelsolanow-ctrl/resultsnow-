@@ -24,6 +24,11 @@ const same = (a: string, b: string) => {
   return x.length === y.length && timingSafeEqual(x, y);
 };
 
+/** Nomes de todos os organizadores cadastrados na Vercel */
+export function organizerNames(): string[] {
+  return [...organizers().values()].map((o) => o.name);
+}
+
 /** Master: variável MASTER na Vercel, ou o primeiro nome de ORGANIZERS (Samuel) */
 export function isMaster(name: string): boolean {
   const master = process.env.MASTER?.trim() || [...organizers().values()][0]?.name || "";

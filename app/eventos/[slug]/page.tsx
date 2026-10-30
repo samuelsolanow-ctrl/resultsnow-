@@ -53,7 +53,7 @@ export default async function EventPage({ params }: Props) {
 
   return (
     <div>
-      <OrganizerBar eventId={ev.id} organizer={ev.organizer} />
+      <OrganizerBar eventId={ev.id} organizer={ev.organizer} helpers={ev.helpers ?? []} />
       <div className="bg-night">
         <div className="wrap max-w-4xl pb-6 pt-3 sm:pt-5">
           <BackLink href="/">Eventos</BackLink>

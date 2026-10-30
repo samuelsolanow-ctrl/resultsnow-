@@ -24,6 +24,8 @@ export interface EventRow {
   /** o que aparece na súmula (padrão: sim) */
   show_club?: boolean;
   show_cbvela?: boolean;
+  /** outros organizadores que ajudam a administrar */
+  helpers?: string[];
   created_at: string;
 }
 

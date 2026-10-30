@@ -139,6 +139,7 @@ function Dashboard({ user, master }: { user: string; master: boolean }) {
               </div>
               <StatusBadge status={ev.status} />
             </Link>
+            {master || (ev.organizer ?? "").toLowerCase() === user.toLowerCase() ? (
             <button
               onClick={() => remove(ev)}
               aria-label={`Apagar ${ev.name}`}
@@ -149,6 +150,9 @@ function Dashboard({ user, master }: { user: string; master: boolean }) {
                 <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
               </svg>
             </button>
+            ) : (
+              <span className="mr-2 rounded bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sea">Ajudante</span>
+            )}
           </div>
         ))}
         {!events.length ? <p className="text-sm text-ink-3">Você ainda não criou nenhum evento.</p> : null}

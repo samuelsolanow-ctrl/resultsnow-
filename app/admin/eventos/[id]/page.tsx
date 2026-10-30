@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import AuthGate from "@/components/AuthGate";
+import AuthGate, { type Organizer } from "@/components/AuthGate";
 import BackLink from "@/components/BackLink";
 import RegistrationLink from "@/components/RegistrationLink";
 import ShareEvent from "@/components/ShareEvent";
@@ -37,10 +37,10 @@ const CLASS_PRESETS: { name: string; crew: number }[] = [
 type Tab = "evento" | "classes" | "inscritos" | "regatas" | "avisos";
 
 export default function EventAdminPage() {
-  return <AuthGate>{() => <EventAdmin />}</AuthGate>;
+  return <AuthGate>{(org) => <EventAdmin org={org} />}</AuthGate>;
 }
 
-function EventAdmin() {
+function EventAdmin({ org }: { org: Organizer }) {
   const { id } = useParams<{ id: string }>();
   const sb = db;
   const [ev, setEv] = useState<EventRow | null>(null);
@@ -124,7 +124,7 @@ function EventAdmin() {
         ))}
       </div>
 
-      {tab === "evento" ? <EventForm ev={ev} onSaved={loadEvent} /> : null}
+      {tab === "evento" ? <EventForm ev={ev} onSaved={loadEvent} org={org} /> : null}
       {tab === "avisos" ? <NoticesTab eventId={ev.id} /> : null}
       {tab === "classes" ? <ClassesTab eventId={ev.id} classes={classes} onChange={loadClasses} /> : null}
       {(tab === "inscritos" || tab === "regatas") && !classes.length ? (
@@ -167,7 +167,8 @@ function ClassPicker({ classes, value, onChange }: { classes: ClassRow[]; value:
 
 /* ---------------- Evento ---------------- */
 
-function EventForm({ ev, onSaved }: { ev: EventRow; onSaved: () => void }) {
+function EventForm({ ev, onSaved, org }: { ev: EventRow; onSaved: () => void; org: Organizer }) {
+  const isOwner = org.master || (ev.organizer ?? "").toLowerCase() === org.user.toLowerCase();
   const sb = db;
   const router = useRouter();
   const [f, setF] = useState(ev);
@@ -305,7 +306,9 @@ function EventForm({ ev, onSaved }: { ev: EventRow; onSaved: () => void }) {
         </div>
       </div>
 
-      <button className="btn-danger" onClick={remove}>Excluir evento</button>
+      <HelpersBox ev={ev} canEdit={isOwner} onSaved={onSaved} />
+
+      {isOwner ? <button className="btn-danger" onClick={remove}>Excluir evento</button> : null}
     </div>
   );
 }
@@ -880,6 +883,69 @@ function NoticesTab({ eventId }: { eventId: string }) {
           {!protests.length ? <p className="p-3 text-sm text-ink-3">Nenhum protesto.</p> : null}
         </div>
       </section>
+    </div>
+  );
+}
+
+/* ---------------- Ajudantes ---------------- */
+
+function HelpersBox({ ev, canEdit, onSaved }: { ev: EventRow; canEdit: boolean; onSaved: () => void }) {
+  const [names, setNames] = useState<string[]>([]);
+  const [sel, setSel] = useState<string[]>(ev.helpers ?? []);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => setSel(ev.helpers ?? []), [ev.helpers]);
+  useEffect(() => {
+    fetch("/api/organizers")
+      .then((r) => r.json())
+      .then((j) => setNames((j.names ?? []).filter((n: string) => n.toLowerCase() !== (ev.organizer ?? "").toLowerCase())))
+      .catch(() => null);
+  }, [ev.organizer]);
+
+  async function toggle(n: string) {
+    if (!canEdit) return;
+    const next = sel.includes(n) ? sel.filter((x) => x !== n) : [...sel, n];
+    setSel(next);
+    const { error } = await db.from("events").update({ helpers: next }).eq("id", ev.id);
+    if (error) {
+      setSel(sel);
+      return setMsg(error.message.includes("helpers") ? "Rode o SQL dos ajudantes no Supabase." : error.message);
+    }
+    setMsg("Salvo.");
+    onSaved();
+  }
+
+  return (
+    <div className="card p-4">
+      <p className="font-display text-xl font-bold">Organizadores ajudantes</p>
+      <p className="mb-3 text-sm text-ink-3">
+        Outro oficial de regata que ajuda neste evento: lança regatas, inscritos, avisos e protestos. Não pode apagar o evento.
+        {ev.organizer ? <> Criado por <b>{ev.organizer}</b>.</> : null}
+      </p>
+      {names.length ? (
+        <div className="flex flex-wrap gap-2">
+          {names.map((n) => {
+            const on = sel.includes(n);
+            return (
+              <button
+                key={n}
+                type="button"
+                disabled={!canEdit}
+                onClick={() => toggle(n)}
+                className={`inline-flex h-10 items-center gap-2 rounded-full border-2 px-4 text-sm font-semibold transition ${
+                  on ? "border-sea bg-sea text-white" : "border-line bg-white text-ink-2"
+                } ${canEdit ? "" : "opacity-70"}`}
+              >
+                {on ? "✓" : "+"} {n}
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-sm text-ink-3">Nenhum outro organizador cadastrado. Para criar, adicione em ORGANIZERS na Vercel.</p>
+      )}
+      {!canEdit ? <p className="mt-2 text-xs text-ink-3">Só quem criou o evento escolhe os ajudantes.</p> : null}
+      {msg ? <p className="mt-2 text-sm text-ink-3">{msg}</p> : null}
     </div>
   );
 }

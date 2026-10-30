@@ -49,10 +49,19 @@ export async function checkAccess(sb: SupabaseClient, user: string, master: bool
   if (table === "circuits" || table === "circuit_events") return circuitAccess(sb, user, table, ops);
   const ids = await eventIdsFor(sb, table, ops);
   if (!ids) return "Operação não permitida.";
-  const { data } = await sb.from("events").select("id, organizer").in("id", ids);
-  const rows = (data ?? []) as { id: string; organizer: string | null }[];
-  const ok = rows.length === ids.length && rows.every((e) => (e.organizer ?? "").toLowerCase() === user.toLowerCase());
-  return ok ? null : "Você só pode alterar os seus eventos.";
+  const { data } = await sb.from("events").select("*").in("id", ids);
+  const rows = (data ?? []) as { id: string; organizer: string | null; helpers?: string[] | null }[];
+  const u = user.toLowerCase();
+  const isOwner = (e: (typeof rows)[number]) => (e.organizer ?? "").toLowerCase() === u;
+  const isHelper = (e: (typeof rows)[number]) => (e.helpers ?? []).some((h) => h.toLowerCase() === u);
+  if (rows.length !== ids.length) return "Operação não permitida.";
+  // apagar o evento ou mudar os ajudantes: só o dono
+  const ownerOnly =
+    table === "events" &&
+    (ops.some((o) => o.m === "delete") ||
+      ops.some((o) => (o.m === "update" || o.m === "upsert") && o.a[0] && typeof o.a[0] === "object" && "helpers" in (o.a[0] as object)));
+  if (ownerOnly) return rows.every(isOwner) ? null : "Só quem criou o evento pode apagar ou trocar os ajudantes.";
+  return rows.every((e) => isOwner(e) || isHelper(e)) ? null : "Você só pode alterar os eventos que organiza ou ajuda.";
 }
 
 /** Circuitos: cada um mexe só nos rankings que criou */

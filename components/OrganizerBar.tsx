@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 /** Aparece só para o organizador logado (dono do evento ou master): atalhos para editar */
-export default function OrganizerBar({ eventId, organizer }: { eventId: string; organizer: string | null }) {
+export default function OrganizerBar({ eventId, organizer, helpers = [] }: { eventId: string; organizer: string | null; helpers?: string[] }) {
   const [can, setCan] = useState(false);
 
   useEffect(() => {
@@ -12,11 +12,13 @@ export default function OrganizerBar({ eventId, organizer }: { eventId: string; 
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (!j?.user) return;
-        const own = (organizer ?? "").toLowerCase() === String(j.user).toLowerCase();
-        setCan(!!j.master || own);
+        const u = String(j.user).toLowerCase();
+        const own = (organizer ?? "").toLowerCase() === u;
+        const helper = helpers.some((h) => h.toLowerCase() === u);
+        setCan(!!j.master || own || helper);
       })
       .catch(() => null);
-  }, [organizer]);
+  }, [organizer, helpers]);
 
   if (!can) return null;
   const base = `/admin/eventos/${eventId}`;
