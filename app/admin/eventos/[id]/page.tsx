@@ -9,6 +9,7 @@ import RegistrationLink, { Chevron } from "@/components/RegistrationLink";
 import ShareEvent from "@/components/ShareEvent";
 import StatusBadge from "@/components/StatusBadge";
 import { BR_STATES } from "@/lib/flags";
+import { parseList } from "@/lib/parseList";
 import { db, uploadCover } from "@/lib/adminDb";
 import type { ClassRow, DiscardRule, EntryRow, EventRow, FlagMode, NoticeRow, ProtestRow, RaceRow } from "@/lib/types";
 
@@ -505,30 +506,15 @@ function EntriesTab({
     load();
   }
 
+  const preview = useMemo(() => (bulk.trim() ? parseList(bulk, duo) : []), [bulk, duo]);
+
   async function importBulk() {
-    const rows = bulk
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .filter(Boolean)
-      .map((l) => l.split(/\t|;/).map((x) => x.trim()))
-      .filter((c) => c[0] && c[4]);
-    if (!rows.length) return setMsg("Nenhuma linha válida. Confira o formato.");
-    const payload = rows.map((c) =>
-      clean({
-        sail_number: c[0] ?? "",
-        country: c[1] ?? "",
-        state: c[2] ?? "",
-        club: c[3] ?? "",
-        helm_name: c[4] ?? "",
-        helm_cbvela: c[5] ?? "",
-        crew_name: duo ? c[6] ?? "" : "",
-        crew_cbvela: (duo ? c[7] : "") ?? "",
-        division: (duo ? c[8] : c[6]) ?? "",
-      })
-    );
+    if (!preview.length) return setMsg("Nenhum atleta reconhecido. Confira a lista.");
+    const payload = preview.map(({ warning: _w, ...e }) => clean(e));
     const { error } = await sb.from("entries").insert(payload);
     if (error) return setMsg(error.message);
-    setMsg(`${payload.length} inscritos importados.`);
+    const missing = preview.filter((e) => e.warning).length;
+    setMsg(`${payload.length} atletas cadastrados.${missing ? ` ${missing} sem numeral: toque em Editar para completar.` : ""}`);
     setBulk("");
     setShowBulk(false);
     load();
@@ -603,7 +589,7 @@ function EntriesTab({
           {editing ? (
             <button type="button" className="btn-ghost" onClick={() => { setEditing(null); setF({ ...emptyEntry }); }}>Cancelar</button>
           ) : (
-            <button type="button" className="btn-ghost" onClick={() => setShowBulk(!showBulk)}>Colar lista</button>
+            <button type="button" className="btn-ghost" onClick={() => setShowBulk(!showBulk)}>📋 Colar lista de atletas</button>
           )}
         </div>
       </form>
@@ -611,18 +597,46 @@ function EntriesTab({
       {showBulk ? (
         <div className="card space-y-3 p-4">
           <p className="text-sm text-ink-2">
-            Cole da planilha (uma linha por barco, colunas separadas por tab ou <b>;</b>) nesta ordem:
+            Cole a lista do jeito que estiver (WhatsApp, e-mail, planilha). Uma linha por barco, por exemplo:
           </p>
-          <p className="rounded bg-paper p-2 font-mono text-xs text-ink-2">
-            Nº vela ; País ; UF ; Clube ; {duo ? "Timoneiro" : "Velejador"} ; ID CBVela{duo ? " ; Proeiro ; ID CBVela proeiro" : ""} ; Divisão
+          <p className="rounded bg-paper p-2 font-mono text-xs leading-5 text-ink-2">
+            1. Rogério Guilger BRA 23<br />
+            2. Cristiano Ruschman BRA108 (YCSA)<br />
+            {duo ? <>3. João Lima / Pedro Reis BRA 30101<br /></> : null}
+            4. Fabio Cotrim BRA ← sem número: completa depois
           </p>
           <textarea
-            className="input h-40 py-2 font-mono text-xs"
+            className="input h-44 py-2 font-mono text-sm"
             value={bulk}
             onChange={(e) => setBulk(e.target.value)}
-            placeholder={`BRA 215;BRA;SP;YCSA;João Silva;12345${duo ? ";Pedro Lima;23456" : ""}`}
+            placeholder="Cole aqui a lista de atletas"
           />
-          <button className="btn-primary" onClick={importBulk}>Importar</button>
+          {preview.length ? (
+            <div className="overflow-hidden rounded-lg border border-line">
+              <p className="bg-paper px-3 py-2 text-xs font-semibold uppercase tracking-wide text-ink-3">
+                Prévia · {preview.length} atleta{preview.length > 1 ? "s" : ""}
+              </p>
+              <div className="max-h-72 divide-y divide-line overflow-y-auto">
+                {preview.map((e, i) => (
+                  <div key={i} className="flex items-center gap-3 px-3 py-1.5 text-sm">
+                    <span className={`num w-20 shrink-0 font-semibold ${e.warning ? "text-amber-600" : ""}`}>{e.sail_number}</span>
+                    <span className="min-w-0 flex-1 truncate">
+                      {e.helm_name}
+                      {e.crew_name ? ` / ${e.crew_name}` : ""}
+                      {e.club ? <span className="text-ink-3"> · {e.club}</span> : null}
+                    </span>
+                    {e.warning ? <span className="shrink-0 rounded bg-amber-50 px-1.5 text-[11px] font-semibold text-amber-700">{e.warning}</span> : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          <div className="flex gap-2">
+            <button className="btn-primary" onClick={importBulk} disabled={!preview.length}>
+              Cadastrar {preview.length || ""} atleta{preview.length === 1 ? "" : "s"}
+            </button>
+            <button className="btn-ghost" onClick={() => { setShowBulk(false); setBulk(""); }}>Cancelar</button>
+          </div>
         </div>
       ) : null}
 
