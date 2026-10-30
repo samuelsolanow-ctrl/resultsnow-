@@ -2,7 +2,11 @@ import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import "./globals.css";
 
+const prod = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+
 export const metadata: Metadata = {
+  metadataBase: new URL(prod ? `https://${prod}` : "http://localhost:3000"),
+  openGraph: { siteName: "ResultsNOW", images: ["/logo-full.jpg"], locale: "pt_BR" },
   title: "ResultsNOW — Resultados de vela",
   description: "Resultados de regatas de vela em tempo real.",
 };

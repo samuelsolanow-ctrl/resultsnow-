@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import PrintButton from "@/components/PrintButton";
 import ResultsTable from "@/components/ResultsTable";
+import ShareEvent from "@/components/ShareEvent";
 import { formatDates, getEventBySlug, isPast, standingsFor } from "@/lib/data";
 import { CODE_LABELS, discardsFor } from "@/lib/scoring";
 
@@ -13,7 +14,17 @@ type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ classe
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const ev = await getEventBySlug(slug);
-  return { title: ev ? `${ev.name} — ResultsNOW` : "ResultsNOW" };
+  if (!ev) return { title: "ResultsNOW" };
+  const desc = [ev.venue, formatDates(ev.start_date, ev.end_date), ev.classes.map((c) => c.name).join(", ")]
+    .filter(Boolean)
+    .join(" · ");
+  const image = ev.cover_url || "/logo-full.jpg";
+  return {
+    title: `${ev.name} — ResultsNOW`,
+    description: `Resultados ao vivo · ${desc}`,
+    openGraph: { title: ev.name, description: `Resultados ao vivo · ${desc}`, images: [image], type: "website" },
+    twitter: { card: "summary_large_image", title: ev.name, images: [image] },
+  };
 }
 
 export default async function EventPage({ params, searchParams }: Props) {
@@ -56,6 +67,10 @@ export default async function EventPage({ params, searchParams }: Props) {
           <p className="text-xs">
             {[ev.venue, formatDates(ev.start_date, ev.end_date)].filter(Boolean).join(" · ")}
           </p>
+        </div>
+
+        <div className="mb-5">
+          <ShareEvent name={ev.name} slug={ev.slug} />
         </div>
 
         {ev.classes.length > 1 ? (

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AuthGate from "@/components/AuthGate";
+import ShareEvent from "@/components/ShareEvent";
 import StatusBadge from "@/components/StatusBadge";
 import { BR_STATES } from "@/lib/flags";
 import { db, uploadCover } from "@/lib/adminDb";
@@ -83,6 +84,16 @@ function EventAdmin() {
           </Link>
         ) : null}
       </div>
+
+      {ev.status !== "draft" ? (
+        <div className="mb-4">
+          <ShareEvent name={ev.name} slug={ev.slug} compact />
+        </div>
+      ) : (
+        <p className="mb-4 rounded-lg bg-paper p-3 text-sm text-ink-2">
+          Rascunho: o link público aparece quando você salvar a primeira regata ou mudar a situação para “Ao vivo”.
+        </p>
+      )}
 
       <div className="-mx-4 mb-5 flex gap-1 overflow-x-auto border-b border-line px-4">
         {tabs.map(([t, label]) => (
