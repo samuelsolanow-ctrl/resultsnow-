@@ -10,11 +10,16 @@ export default async function Home() {
   const past = events.filter((e) => isPast(e));
 
   return (
+    <>
+    <section className="cover-default">
+      <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16">
+        <h1 className="max-w-lg font-display text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl">
+          Resultados de vela, <span className="text-sky">na hora.</span>
+        </h1>
+        <p className="mt-3 max-w-md text-white/70">Classificações oficiais das regatas, atualizadas pela organização.</p>
+      </div>
+    </section>
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <section className="mb-10">
-        <h1 className="font-display text-4xl font-bold tracking-tight sm:text-5xl">Resultados de vela</h1>
-        <p className="mt-2 max-w-xl text-ink-3">Classificações oficiais das regatas, atualizadas pela organização.</p>
-      </section>
 
       {!isConfigured() ? (
         <div className="card p-4 text-sm text-ink-2">
@@ -30,6 +35,7 @@ export default async function Home() {
         {past.map((ev) => <EventCard key={ev.id} ev={ev} />)}
       </Section>
     </div>
+    </>
   );
 }
 

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import "./globals.css";
 
@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   title: "ResultsNOW — Resultados de vela",
   description: "Resultados de regatas de vela em tempo real.",
 };
+
+export const viewport: Viewport = { themeColor: "#2A2F35" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -18,37 +20,28 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-screen">
-        <header className="no-print sticky top-0 z-20 border-b border-line bg-white/90 backdrop-blur">
+      <body className="flex min-h-screen flex-col">
+        <header className="no-print sticky top-0 z-20 bg-night">
           <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-            <Link href="/" className="flex items-center gap-2">
-              <Logo />
-              <span className="font-display text-xl font-bold tracking-tight">
-                Results<span className="text-flag">NOW</span>
-              </span>
+            <Link href="/" aria-label="ResultsNOW — início" className="flex items-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo-horizontal.png" alt="resultsnow" className="h-8 w-auto sm:h-9" />
             </Link>
             <nav className="flex items-center gap-1 text-sm font-medium">
-              <Link href="/" className="rounded-md px-3 py-2 text-ink-2 hover:bg-paper">Eventos</Link>
-              <Link href="/admin" className="rounded-md px-3 py-2 text-ink-2 hover:bg-paper">Organizador</Link>
+              <Link href="/" className="rounded-md px-3 py-2 text-white/80 hover:bg-white/10 hover:text-white">Eventos</Link>
+              <Link href="/admin" className="rounded-md px-3 py-2 text-white/80 hover:bg-white/10 hover:text-white">Organizador</Link>
             </nav>
           </div>
         </header>
-        <main>{children}</main>
-        <footer className="no-print mx-auto max-w-6xl px-4 py-10 text-xs text-ink-3">
-          ResultsNOW · Pontuação baixa, RRS Apêndice A
+        <main className="flex-1">{children}</main>
+        <footer className="no-print mt-10 bg-night">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-xs text-white/60">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-horizontal.png" alt="resultsnow" className="h-6 w-auto" />
+            <span>Pontuação baixa · RRS Apêndice A</span>
+          </div>
         </footer>
       </body>
     </html>
-  );
-}
-
-function Logo() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden>
-      <rect width="32" height="32" rx="7" fill="#0B1B2B" />
-      <path d="M16 5 L16 23 L8 23 Z" fill="#fff" />
-      <path d="M17.5 9 L17.5 23 L24 23 Z" fill="#D7263D" />
-      <path d="M6 25.5 H26" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
   );
 }

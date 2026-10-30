@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { slugify } from "@/lib/slug";
 import { isConfigured, supabaseBrowser } from "@/lib/supabase";
+
+/** "Samuel" → samuel@resultsnow.app; e-mail digitado passa direto */
+export const loginEmail = (u: string) => (u.includes("@") ? u.trim().toLowerCase() : `${slugify(u)}@resultsnow.app`);
 
 export default function AuthGate({ children }: { children: (session: Session) => React.ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -38,11 +42,12 @@ function Login() {
     const sb = supabaseBrowser();
     const { error, data } =
       mode === "in"
-        ? await sb.auth.signInWithPassword({ email, password })
-        : await sb.auth.signUp({ email, password });
+        ? await sb.auth.signInWithPassword({ email: loginEmail(email), password })
+        : await sb.auth.signUp({ email: loginEmail(email), password, options: { data: { username: email.trim() } } });
     setBusy(false);
-    if (error) return setMsg(error.message);
-    if (mode === "up" && !data.session) setMsg("Conta criada. Confirme pelo link enviado ao seu e-mail e depois entre.");
+    if (error) return setMsg(error.message === "Invalid login credentials" ? "Usuário ou senha incorretos." : error.message);
+    if (mode === "up" && !data.session)
+      setMsg("Conta criada, mas o Supabase pediu confirmação de e-mail. Desligue \"Confirm email\" em Authentication → Sign In / Providers → Email.");
   }
 
   return (
@@ -51,8 +56,8 @@ function Login() {
       <p className="mb-6 mt-1 text-sm text-ink-3">Crie eventos, cadastre barcos e lance os resultados.</p>
       <form onSubmit={submit} className="card space-y-4 p-5">
         <div>
-          <label className="label">E-mail</label>
-          <input className="input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <label className="label">Usuário</label>
+          <input className="input" type="text" autoCapitalize="none" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
         <div>
           <label className="label">Senha</label>

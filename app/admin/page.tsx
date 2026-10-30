@@ -11,7 +11,7 @@ import { supabaseBrowser } from "@/lib/supabase";
 import type { EventRow } from "@/lib/types";
 
 export default function AdminPage() {
-  return <AuthGate>{(session) => <Dashboard userId={session.user.id} email={session.user.email ?? ""} />}</AuthGate>;
+  return <AuthGate>{(session) => <Dashboard userId={session.user.id} email={(session.user.user_metadata?.username as string) || (session.user.email ?? "").replace("@resultsnow.app", "")} />}</AuthGate>;
 }
 
 function Dashboard({ userId, email }: { userId: string; email: string }) {

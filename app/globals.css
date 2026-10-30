@@ -16,11 +16,18 @@ body {
 }
 
 .cover-default {
-  background-color: #0b3f7a;
+  background-color: #2a2f35;
   background-image:
-    radial-gradient(120% 90% at 100% 0%, rgba(255, 255, 255, 0.14) 0%, transparent 55%),
-    repeating-linear-gradient(170deg, rgba(255, 255, 255, 0.06) 0 2px, transparent 2px 22px),
-    linear-gradient(160deg, #0e4c92 0%, #0b1b2b 100%);
+    url("/sails.png"),
+    radial-gradient(120% 90% at 100% 0%, rgba(127, 199, 214, 0.18) 0%, transparent 55%),
+    linear-gradient(160deg, #353b42 0%, #22262b 100%);
+  background-repeat: no-repeat;
+  background-position: right 6% center, 0 0, 0 0;
+  background-size: auto 70%, cover, cover;
+}
+
+@media (max-width: 640px) {
+  .cover-default { background-size: auto 42%, cover, cover; background-position: right 4% bottom 14px, 0 0, 0 0; }
 }
 
 @layer components {
