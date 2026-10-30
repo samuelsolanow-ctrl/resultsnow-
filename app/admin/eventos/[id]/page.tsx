@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AuthGate from "@/components/AuthGate";
+import BackLink from "@/components/BackLink";
 import ShareEvent from "@/components/ShareEvent";
 import StatusBadge from "@/components/StatusBadge";
 import { BR_STATES } from "@/lib/flags";
@@ -73,8 +74,8 @@ function EventAdmin() {
   ];
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6">
-      <Link href="/admin" className="text-sm text-sea">← Meus eventos</Link>
+    <div className="wrap max-w-4xl py-5 sm:py-8">
+      <BackLink href="/admin">Meus eventos</BackLink>
       <div className="mb-4 mt-2 flex flex-wrap items-center gap-3">
         <h1 className="font-display text-3xl font-bold leading-tight">{ev.name}</h1>
         <StatusBadge status={ev.status} />

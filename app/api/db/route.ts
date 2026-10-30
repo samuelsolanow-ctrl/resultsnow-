@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { COOKIE, readToken } from "@/lib/session";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -12,6 +13,7 @@ const METHODS = new Set([
 ]);
 
 type Op = { m: string; a: unknown[] };
+const WRITES = new Set(["insert", "update", "upsert", "delete"]);
 
 /** Executa no banco as operações do painel, só para organizador logado */
 export async function POST(req: Request) {
@@ -38,6 +40,8 @@ export async function POST(req: Request) {
       q = q[op.m](...args);
     }
     const { data, error, count } = await q;
+    // gravou algo: limpa o cache das páginas públicas para aparecer na hora
+    if (!error && ops.some((o) => WRITES.has(o.m))) revalidatePath("/", "layout");
     return NextResponse.json({ data, error, count });
   } catch (e) {
     return NextResponse.json({ data: null, error: { message: (e as Error).message } }, { status: 500 });

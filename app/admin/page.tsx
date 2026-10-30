@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import AuthGate, { logout } from "@/components/AuthGate";
+import BackLink from "@/components/BackLink";
 import StatusBadge from "@/components/StatusBadge";
 import { formatDates } from "@/lib/data";
 import { slugify } from "@/lib/slug";
@@ -53,9 +54,10 @@ function Dashboard({ user }: { user: string }) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
+    <div className="wrap max-w-4xl py-6 sm:py-8">
       <div className="mb-6 flex items-center justify-between gap-3">
         <div>
+          <BackLink href="/">Site</BackLink>
           <h1 className="font-display text-3xl font-bold">Meus eventos</h1>
           <p className="text-sm text-ink-3">Olá, {user.charAt(0).toUpperCase() + user.slice(1)}</p>
         </div>

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { computeStandings, type Standing } from "./scoring";
 import { isConfigured, supabaseServer } from "./supabase";
 import type { ClassFull, EventFull } from "./types";
@@ -28,12 +29,12 @@ export async function listPublicEvents(): Promise<EventFull[]> {
   return (data as EventFull[]).map(normalize);
 }
 
-export async function getEventBySlug(slug: string): Promise<EventFull | null> {
+export const getEventBySlug = cache(async function getEventBySlug(slug: string): Promise<EventFull | null> {
   if (!isConfigured()) return null;
   const { data, error } = await supabaseServer().from("events").select(FULL_SELECT).eq("slug", slug).maybeSingle();
   if (error || !data) return null;
   return normalize(data as EventFull);
-}
+});
 
 export function standingsFor(c: ClassFull): Standing[] {
   return computeStandings(

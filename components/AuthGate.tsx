@@ -4,23 +4,31 @@ import { useCallback, useEffect, useState } from "react";
 
 export type Organizer = { user: string };
 
+// lembra o login entre as telas do painel (evita checar no servidor a cada clique)
+let known: string | null = null;
+
 export async function logout() {
+  known = null;
   await fetch("/api/login", { method: "DELETE" });
   window.location.href = "/admin";
 }
 
 export default function AuthGate({ children }: { children: (org: Organizer) => React.ReactNode }) {
-  const [user, setUser] = useState<string | null | undefined>(undefined);
+  const [user, setUser] = useState<string | null | undefined>(known ?? undefined);
 
   const check = useCallback(async () => {
     const res = await fetch("/api/login", { cache: "no-store" }).catch(() => null);
     const json = res ? await res.json().catch(() => ({})) : {};
-    setUser(json.user ?? null);
+    known = json.user ?? null;
+    setUser(known);
   }, []);
 
   useEffect(() => {
-    check();
-    const out = () => setUser(null);
+    if (!known) check();
+    const out = () => {
+      known = null;
+      setUser(null);
+    };
     window.addEventListener("rn-logout", out);
     return () => window.removeEventListener("rn-logout", out);
   }, [check]);
@@ -48,11 +56,12 @@ function Login({ onDone }: { onDone: (u: string) => void }) {
     const json = await res.json().catch(() => ({}));
     setBusy(false);
     if (!res.ok) return setMsg(json.error ?? "Não foi possível entrar.");
+    known = json.user;
     onDone(json.user);
   }
 
   return (
-    <div className="mx-auto max-w-sm px-4 py-16">
+    <div className="wrap max-w-sm py-12 sm:py-16">
       <h1 className="font-display text-3xl font-bold">Área do organizador</h1>
       <p className="mb-6 mt-1 text-sm text-ink-3">Crie eventos, cadastre barcos e lance os resultados.</p>
       <form onSubmit={submit} className="card space-y-4 p-5">

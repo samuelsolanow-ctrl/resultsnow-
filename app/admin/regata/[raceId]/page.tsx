@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AuthGate from "@/components/AuthGate";
+import BackLink from "@/components/BackLink";
 import RaceShare from "@/components/RaceShare";
 import { db } from "@/lib/adminDb";
 import { CODE_LABELS, KEEP_PLACE_CODES, POINTS_CODES, computeStandings } from "@/lib/scoring";
@@ -51,18 +52,18 @@ function RaceEditor() {
 
   useEffect(() => {
     (async () => {
-      const { data: race } = await db.from("races").select("*").eq("id", raceId).single();
+      // uma única ida ao servidor traz regata, classe, evento, inscritos e resultados
+      const { data: race } = await db
+        .from("races")
+        .select("*, classes(*, events(*), entries(*), races(*, results(*)))")
+        .eq("id", raceId)
+        .single();
       if (!race) return;
-      const [{ data: cls }, { data: entries }, { data: races }] = await Promise.all([
-        db.from("classes").select("*").eq("id", race.class_id).single(),
-        db.from("entries").select("*").eq("class_id", race.class_id),
-        db.from("races").select("*, results(*)").eq("class_id", race.class_id).order("number"),
-      ]);
-      const { data: ev } = await db.from("events").select("*").eq("id", cls.event_id).single();
+      const { events: ev, entries, races, ...cls } = race.classes;
       const list = ((entries as EntryRow[]) ?? []).sort((a, b) =>
         a.sail_number.localeCompare(b.sail_number, "pt-BR", { numeric: true })
       );
-      const allRaces = (races ?? []) as (RaceRow & { results: ResultRow[] })[];
+      const allRaces = ((races ?? []) as (RaceRow & { results: ResultRow[] })[]).sort((x, y) => x.number - y.number);
       const mine = allRaces.find((r) => r.id === raceId)?.results ?? [];
       const fin = mine.filter((r) => r.position != null).sort((a, b) => a.position! - b.position!);
       setOrder(fin.map((r) => r.entry_id));
@@ -71,7 +72,7 @@ function RaceEditor() {
       setPts(Object.fromEntries(mine.filter((r) => r.points != null).map((r) => [r.entry_id, String(r.points)])));
       setDate(race.sailed_on ?? "");
       setData({
-        race: race as RaceRow,
+        race: { id: race.id, class_id: race.class_id, number: race.number, sailed_on: race.sailed_on },
         cls: cls as ClassRow,
         ev: ev as EventRow,
         entries: list,
@@ -239,11 +240,11 @@ function RaceEditor() {
     : [];
 
   return (
-    <div className="mx-auto max-w-3xl pb-32">
+    <div className="mx-auto w-full max-w-4xl pb-32">
       {/* topo fixo */}
-      <div className="sticky top-14 z-10 border-b border-line bg-white/95 px-4 pb-3 pt-3 backdrop-blur">
+      <div className="sticky top-14 z-10 border-b border-line bg-white/95 px-4 pb-3 pt-3 backdrop-blur sm:px-6">
         <div className="flex items-center justify-between gap-3">
-          <Link href={`/admin/eventos/${cls.event_id}`} className="text-sm text-sea">← {cls.name}</Link>
+          <BackLink href={`/admin/eventos/${cls.event_id}`}>{cls.name}</BackLink>
           <input type="date" className="input h-8 w-36 text-xs" value={date} onChange={(e) => { setDate(e.target.value); setDirty(true); }} />
         </div>
         <div className="mt-1 flex items-end justify-between">
@@ -282,7 +283,7 @@ function RaceEditor() {
         />
       </div>
 
-      <div className="px-4">
+      <div className="px-4 sm:px-6">
         <p className={`mt-3 text-xs font-semibold ${modeIsCode ? "text-flag" : "text-ink-3"}`}>
           {modeIsCode
             ? `Toque nos barcos para marcar ${mode}: ${CODE_LABELS[mode] ?? ""}`
@@ -290,7 +291,7 @@ function RaceEditor() {
         </p>
 
         {/* grade de barcos */}
-        <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+        <div className="mt-2 grid grid-cols-3 gap-2 min-[400px]:grid-cols-4 sm:grid-cols-5 lg:grid-cols-7">
           {visible.map((e) => (
             <button
               key={e.id}
@@ -406,7 +407,7 @@ function RaceEditor() {
 
       {/* barra inferior */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-white/95 backdrop-blur" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-3">
+        <div className="mx-auto flex max-w-4xl items-center gap-2 px-4 py-3 sm:px-6">
           <button className="btn-ghost" onClick={undo} disabled={!history.length}>↶ Desfazer</button>
           <span className="hidden text-sm text-ink-3 sm:inline">{dirty ? "Não salvo" : saved ? "Publicado" : ""}</span>
           <button className="btn-primary ml-auto h-11 px-6 text-base" disabled={busy} onClick={save}>
