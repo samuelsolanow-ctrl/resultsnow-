@@ -24,6 +24,12 @@ const same = (a: string, b: string) => {
   return x.length === y.length && timingSafeEqual(x, y);
 };
 
+/** Master: variável MASTER na Vercel, ou o primeiro nome de ORGANIZERS (Samuel) */
+export function isMaster(name: string): boolean {
+  const master = process.env.MASTER?.trim() || [...organizers().values()][0]?.name || "";
+  return master.toLowerCase() === name.toLowerCase();
+}
+
 export function checkLogin(user: string, password: string): string | null {
   const o = organizers().get(user.trim().toLowerCase());
   return o && same(o.password, password) ? o.name : null;

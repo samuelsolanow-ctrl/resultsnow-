@@ -1,7 +1,8 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
-import { COOKIE, readToken } from "@/lib/session";
+import { checkAccess } from "@/lib/access";
+import { COOKIE, isMaster, readToken } from "@/lib/session";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
@@ -26,8 +27,12 @@ export async function POST(req: Request) {
   }
 
   try {
+    const sb = supabaseAdmin();
+    const master = isMaster(user);
+    const denied = await checkAccess(sb, user, master, table, ops);
+    if (denied) return NextResponse.json({ data: null, error: { message: denied } }, { status: 403 });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let q: any = supabaseAdmin().from(table);
+    let q: any = sb.from(table);
     for (const op of ops) {
       if (!METHODS.has(op.m)) throw new Error(`Método não permitido: ${op.m}`);
       let args = op.a ?? [];
@@ -38,6 +43,10 @@ export async function POST(req: Request) {
         args = [Array.isArray(rows) ? rows.map(stamp) : stamp(rows as Record<string, unknown>), ...args.slice(1)];
       }
       q = q[op.m](...args);
+      // organizador comum só enxerga os próprios eventos na lista do painel
+      if (!master && table === "events" && op.m === "select" && !ops.some((o) => WRITES.has(o.m))) {
+        q = q.ilike("organizer", user);
+      }
     }
     const { data, error, count } = await q;
     // gravou algo: limpa o cache das páginas públicas para aparecer na hora
