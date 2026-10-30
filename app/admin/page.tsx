@@ -3,18 +3,18 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import AuthGate from "@/components/AuthGate";
+import AuthGate, { logout } from "@/components/AuthGate";
 import StatusBadge from "@/components/StatusBadge";
 import { formatDates } from "@/lib/data";
 import { slugify } from "@/lib/slug";
-import { supabaseBrowser } from "@/lib/supabase";
+import { db } from "@/lib/adminDb";
 import type { EventRow } from "@/lib/types";
 
 export default function AdminPage() {
-  return <AuthGate>{(session) => <Dashboard userId={session.user.id} email={(session.user.user_metadata?.username as string) || (session.user.email ?? "").replace("@resultsnow.app", "")} />}</AuthGate>;
+  return <AuthGate>{(org) => <Dashboard user={org.user} />}</AuthGate>;
 }
 
-function Dashboard({ userId, email }: { userId: string; email: string }) {
+function Dashboard({ user }: { user: string }) {
   const router = useRouter();
   const [events, setEvents] = useState<EventRow[]>([]);
   const [name, setName] = useState("");
@@ -25,13 +25,12 @@ function Dashboard({ userId, email }: { userId: string; email: string }) {
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const { data } = await supabaseBrowser()
+    const { data } = await db
       .from("events")
       .select("*")
-      .eq("owner_id", userId)
       .order("start_date", { ascending: false, nullsFirst: false });
     setEvents((data as EventRow[]) ?? []);
-  }, [userId]);
+  }, []);
 
   useEffect(() => {
     load();
@@ -43,7 +42,7 @@ function Dashboard({ userId, email }: { userId: string; email: string }) {
     setErr(null);
     const base = slugify(`${name} ${start.slice(0, 4)}`) || "evento";
     const slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
-    const { data, error } = await supabaseBrowser()
+    const { data, error } = await db
       .from("events")
       .insert({ name, venue: venue || null, start_date: start || null, end_date: end || start || null, slug, status: "draft" })
       .select()
@@ -58,9 +57,9 @@ function Dashboard({ userId, email }: { userId: string; email: string }) {
       <div className="mb-6 flex items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-bold">Meus eventos</h1>
-          <p className="text-sm text-ink-3">{email}</p>
+          <p className="text-sm text-ink-3">Olá, {user}</p>
         </div>
-        <button className="btn-ghost" onClick={() => supabaseBrowser().auth.signOut()}>Sair</button>
+        <button className="btn-ghost" onClick={logout}>Sair</button>
       </div>
 
       <form onSubmit={create} className="card mb-8 grid gap-3 p-4 sm:grid-cols-2">

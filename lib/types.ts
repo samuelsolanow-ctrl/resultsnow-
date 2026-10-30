@@ -10,7 +10,8 @@ export interface DiscardRule {
 
 export interface EventRow {
   id: string;
-  owner_id: string;
+  owner_id: string | null;
+  organizer: string | null;
   slug: string;
   name: string;
   venue: string | null;

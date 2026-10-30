@@ -4,7 +4,8 @@ create extension if not exists pgcrypto;
 
 create table if not exists public.events (
   id uuid primary key default gen_random_uuid(),
-  owner_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  owner_id uuid references auth.users(id) on delete set null,
+  organizer text,
   slug text not null unique,
   name text not null,
   venue text,
@@ -86,7 +87,7 @@ alter table public.results enable row level security;
 
 -- Leitura pública (rascunhos só para o dono)
 drop policy if exists events_read on public.events;
-create policy events_read on public.events for select using (status <> 'draft' or owner_id = auth.uid());
+create policy events_read on public.events for select using (status <> 'draft');
 drop policy if exists classes_read on public.classes;
 create policy classes_read on public.classes for select using (true);
 drop policy if exists entries_read on public.entries;
@@ -96,22 +97,7 @@ create policy races_read on public.races for select using (true);
 drop policy if exists results_read on public.results;
 create policy results_read on public.results for select using (true);
 
--- Escrita só pelo organizador dono do evento
-drop policy if exists events_write on public.events;
-create policy events_write on public.events for all to authenticated
-  using (owner_id = auth.uid()) with check (owner_id = auth.uid());
-drop policy if exists classes_write on public.classes;
-create policy classes_write on public.classes for all to authenticated
-  using (owns_event(event_id)) with check (owns_event(event_id));
-drop policy if exists entries_write on public.entries;
-create policy entries_write on public.entries for all to authenticated
-  using (owns_class(class_id)) with check (owns_class(class_id));
-drop policy if exists races_write on public.races;
-create policy races_write on public.races for all to authenticated
-  using (owns_class(class_id)) with check (owns_class(class_id));
-drop policy if exists results_write on public.results;
-create policy results_write on public.results for all to authenticated
-  using (owns_race(race_id)) with check (owns_race(race_id));
+-- Escrita: só pelo site (chave secreta no servidor), sem políticas de escrita
 
 -- Capas de evento (Storage)
 insert into storage.buckets (id, name, public) values ('covers', 'covers', true)
@@ -119,9 +105,3 @@ on conflict (id) do nothing;
 
 drop policy if exists covers_read on storage.objects;
 create policy covers_read on storage.objects for select using (bucket_id = 'covers');
-drop policy if exists covers_insert on storage.objects;
-create policy covers_insert on storage.objects for insert to authenticated with check (bucket_id = 'covers');
-drop policy if exists covers_update on storage.objects;
-create policy covers_update on storage.objects for update to authenticated using (bucket_id = 'covers' and owner = auth.uid());
-drop policy if exists covers_delete on storage.objects;
-create policy covers_delete on storage.objects for delete to authenticated using (bucket_id = 'covers' and owner = auth.uid());

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import AuthGate from "@/components/AuthGate";
 import StatusBadge from "@/components/StatusBadge";
 import { BR_STATES } from "@/lib/flags";
-import { supabaseBrowser } from "@/lib/supabase";
+import { db, uploadCover } from "@/lib/adminDb";
 import type { ClassRow, DiscardRule, EntryRow, EventRow, FlagMode, RaceRow } from "@/lib/types";
 
 const CLASS_PRESETS: { name: string; crew: number }[] = [
@@ -39,7 +39,7 @@ export default function EventAdminPage() {
 
 function EventAdmin() {
   const { id } = useParams<{ id: string }>();
-  const sb = supabaseBrowser();
+  const sb = db;
   const [ev, setEv] = useState<EventRow | null>(null);
   const [classes, setClasses] = useState<ClassRow[]>([]);
   const [tab, setTab] = useState<Tab>("evento");
@@ -48,14 +48,14 @@ function EventAdmin() {
   const loadEvent = useCallback(async () => {
     const { data } = await sb.from("events").select("*").eq("id", id).single();
     setEv(data as EventRow);
-  }, [id, sb]);
+  }, [id]);
 
   const loadClasses = useCallback(async () => {
     const { data } = await sb.from("classes").select("*").eq("event_id", id).order("sort_order").order("name");
     const list = (data as ClassRow[]) ?? [];
     setClasses(list);
     setClassId((cur) => (list.some((c) => c.id === cur) ? cur : list[0]?.id ?? ""));
-  }, [id, sb]);
+  }, [id]);
 
   useEffect(() => {
     loadEvent();
@@ -137,7 +137,7 @@ function ClassPicker({ classes, value, onChange }: { classes: ClassRow[]; value:
 /* ---------------- Evento ---------------- */
 
 function EventForm({ ev, onSaved }: { ev: EventRow; onSaved: () => void }) {
-  const sb = supabaseBrowser();
+  const sb = db;
   const router = useRouter();
   const [f, setF] = useState(ev);
   const [msg, setMsg] = useState<string | null>(null);
@@ -165,12 +165,9 @@ function EventForm({ ev, onSaved }: { ev: EventRow; onSaved: () => void }) {
 
   async function upload(file: File) {
     setUploading(true);
-    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-    const path = `${ev.id}/${Date.now()}.${ext}`;
-    const { error } = await sb.storage.from("covers").upload(path, file, { upsert: true, contentType: file.type });
+    const { url, error } = await uploadCover(file, ev.id);
     setUploading(false);
-    if (error) return setMsg(error.message);
-    const url = sb.storage.from("covers").getPublicUrl(path).data.publicUrl;
+    if (error || !url) return setMsg(error ?? "Falha ao enviar a imagem.");
     setF((x) => ({ ...x, cover_url: url }));
     await save({ cover_url: url });
   }
@@ -257,7 +254,7 @@ function rulesText(rules: DiscardRule[]) {
 }
 
 function ClassesTab({ eventId, classes, onChange }: { eventId: string; classes: ClassRow[]; onChange: () => void }) {
-  const sb = supabaseBrowser();
+  const sb = db;
   const [name, setName] = useState("");
   const [crew, setCrew] = useState(1);
   const [d1, setD1] = useState("4");
@@ -344,7 +341,7 @@ function ClassesTab({ eventId, classes, onChange }: { eventId: string; classes: 
 const emptyEntry = { sail_number: "", country: "BRA", state: "", club: "", helm_name: "", helm_cbvela: "", crew_name: "", crew_cbvela: "" };
 
 function EntriesTab({ cls }: { cls: ClassRow }) {
-  const sb = supabaseBrowser();
+  const sb = db;
   const [entries, setEntries] = useState<EntryRow[]>([]);
   const [f, setF] = useState({ ...emptyEntry });
   const [editing, setEditing] = useState<string | null>(null);
@@ -359,7 +356,7 @@ function EntriesTab({ cls }: { cls: ClassRow }) {
       a.sail_number.localeCompare(b.sail_number, "pt-BR", { numeric: true })
     );
     setEntries(list);
-  }, [cls.id, sb]);
+  }, [cls.id]);
 
   useEffect(() => {
     load();
@@ -536,7 +533,7 @@ function EntriesTab({ cls }: { cls: ClassRow }) {
 /* ---------------- Regatas ---------------- */
 
 function RacesTab({ cls }: { cls: ClassRow }) {
-  const sb = supabaseBrowser();
+  const sb = db;
   const router = useRouter();
   const [races, setRaces] = useState<(RaceRow & { results: { count: number }[] })[]>([]);
   const [err, setErr] = useState<string | null>(null);
@@ -544,7 +541,7 @@ function RacesTab({ cls }: { cls: ClassRow }) {
   const load = useCallback(async () => {
     const { data } = await sb.from("races").select("*, results(count)").eq("class_id", cls.id).order("number");
     setRaces((data as typeof races) ?? []);
-  }, [cls.id, sb]);
+  }, [cls.id]);
 
   useEffect(() => {
     load();

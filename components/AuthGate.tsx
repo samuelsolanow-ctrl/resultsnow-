@@ -1,53 +1,54 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
-import { slugify } from "@/lib/slug";
-import { isConfigured, supabaseBrowser } from "@/lib/supabase";
+import { useCallback, useEffect, useState } from "react";
 
-/** "Samuel" → samuel@resultsnow.app; e-mail digitado passa direto */
-export const loginEmail = (u: string) => (u.includes("@") ? u.trim().toLowerCase() : `${slugify(u)}@resultsnow.app`);
+export type Organizer = { user: string };
 
-export default function AuthGate({ children }: { children: (session: Session) => React.ReactNode }) {
-  const [session, setSession] = useState<Session | null | undefined>(undefined);
-
-  useEffect(() => {
-    if (!isConfigured()) {
-      setSession(null);
-      return;
-    }
-    const sb = supabaseBrowser();
-    sb.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data } = sb.auth.onAuthStateChange((_e, s) => setSession(s));
-    return () => data.subscription.unsubscribe();
-  }, []);
-
-  if (session === undefined) return <p className="p-8 text-center text-sm text-ink-3">Carregando…</p>;
-  if (!session) return <Login />;
-  return <>{children(session)}</>;
+export async function logout() {
+  await fetch("/api/login", { method: "DELETE" });
+  window.location.href = "/admin";
 }
 
-function Login() {
-  const mode = "in" as "in" | "up";
-  const [email, setEmail] = useState("");
+export default function AuthGate({ children }: { children: (org: Organizer) => React.ReactNode }) {
+  const [user, setUser] = useState<string | null | undefined>(undefined);
+
+  const check = useCallback(async () => {
+    const res = await fetch("/api/login", { cache: "no-store" }).catch(() => null);
+    const json = res ? await res.json().catch(() => ({})) : {};
+    setUser(json.user ?? null);
+  }, []);
+
+  useEffect(() => {
+    check();
+    const out = () => setUser(null);
+    window.addEventListener("rn-logout", out);
+    return () => window.removeEventListener("rn-logout", out);
+  }, [check]);
+
+  if (user === undefined) return <p className="p-8 text-center text-sm text-ink-3">Carregando…</p>;
+  if (!user) return <Login onDone={setUser} />;
+  return <>{children({ user })}</>;
+}
+
+function Login({ onDone }: { onDone: (u: string) => void }) {
+  const [user, setUser] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!isConfigured()) return setMsg("Supabase não configurado nas variáveis de ambiente.");
     setBusy(true);
     setMsg(null);
-    const sb = supabaseBrowser();
-    const { error, data } =
-      mode === "in"
-        ? await sb.auth.signInWithPassword({ email: loginEmail(email), password })
-        : await sb.auth.signUp({ email: loginEmail(email), password, options: { data: { username: email.trim() } } });
+    const res = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user, password }),
+    });
+    const json = await res.json().catch(() => ({}));
     setBusy(false);
-    if (error) return setMsg(error.message === "Invalid login credentials" ? "Usuário ou senha incorretos." : error.message);
-    if (mode === "up" && !data.session)
-      setMsg("Conta criada, mas o Supabase pediu confirmação de e-mail. Desligue \"Confirm email\" em Authentication → Sign In / Providers → Email.");
+    if (!res.ok) return setMsg(json.error ?? "Não foi possível entrar.");
+    onDone(json.user);
   }
 
   return (
@@ -57,17 +58,14 @@ function Login() {
       <form onSubmit={submit} className="card space-y-4 p-5">
         <div>
           <label className="label">Usuário</label>
-          <input className="input" type="text" autoCapitalize="none" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input className="input" autoCapitalize="none" autoComplete="username" required value={user} onChange={(e) => setUser(e.target.value)} />
         </div>
         <div>
           <label className="label">Senha</label>
-          <input className="input" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
+          <input className="input" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
         {msg ? <p className="text-sm text-flag">{msg}</p> : null}
-        <button className="btn-primary w-full" disabled={busy}>
-          {busy ? "Aguarde…" : mode === "in" ? "Entrar" : "Criar conta"}
-        </button>
-        <p className="text-center text-xs text-ink-3">Acesso só para organizadores autorizados.</p>
+        <button className="btn-primary w-full" disabled={busy}>{busy ? "Entrando…" : "Entrar"}</button>
       </form>
     </div>
   );

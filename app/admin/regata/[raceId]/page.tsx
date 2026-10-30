@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import AuthGate from "@/components/AuthGate";
 import { PENALTY_CODES, POINTS_CODES } from "@/lib/scoring";
 import { sailDigits } from "@/lib/slug";
-import { supabaseBrowser } from "@/lib/supabase";
+import { db } from "@/lib/adminDb";
 import type { ClassRow, EntryRow, RaceRow, ResultRow } from "@/lib/types";
 
 export default function RacePage() {
@@ -18,7 +18,7 @@ type Loaded = { race: RaceRow; cls: ClassRow; entries: EntryRow[] };
 function RaceEditor() {
   const { raceId } = useParams<{ raceId: string }>();
   const router = useRouter();
-  const sb = supabaseBrowser();
+  const sb = db;
   const [data, setData] = useState<Loaded | null>(null);
   const [order, setOrder] = useState<string[]>([]);
   const [codes, setCodes] = useState<Record<string, string>>({});
@@ -48,7 +48,7 @@ function RaceEditor() {
       setDate(race.sailed_on ?? "");
       setData({ race: race as RaceRow, cls: cls as ClassRow, entries: list });
     })();
-  }, [raceId, sb]);
+  }, [raceId]);
 
   const byId = useMemo(() => new Map(data?.entries.map((e) => [e.id, e]) ?? []), [data]);
   const pending = useMemo(() => (data?.entries ?? []).filter((e) => !order.includes(e.id)), [data, order]);
