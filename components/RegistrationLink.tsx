@@ -4,7 +4,7 @@ import { useState } from "react";
 import { WhatsIcon } from "./RaceShare";
 import { db } from "@/lib/adminDb";
 
-/** Como os atletas entram no evento: pelo link (cada um se inscreve) ou manual (o organizador inscreve) */
+/** Inscrições (compacto, abre e fecha): pelo link ou manual */
 export default function RegistrationLink({
   eventId,
   name,
@@ -51,50 +51,43 @@ export default function RegistrationLink({
     setQr(await QR.toDataURL(url(), { width: 1024, margin: 2, color: { dark: "#2A2F35", light: "#FFFFFF" } }));
   }
 
-  const opt = (active: boolean) =>
-    `flex flex-1 flex-col items-start rounded-lg border-2 p-3 text-left transition ${
-      active ? "border-sea bg-sea-50" : "border-line bg-white hover:border-ink-3"
-    }`;
-
   return (
-    <div className="card mb-4 overflow-hidden">
-      <div className="p-4">
-        <p className="mb-2 font-display text-xl font-bold">Inscrições</p>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <button disabled={busy} onClick={() => setMode(true)} className={opt(open)}>
-            <span className="flex items-center gap-2 font-semibold">
-              <Radio on={open} /> Velejadores pelo link
-            </span>
-            <span className="ml-7 text-xs text-ink-3">Cada um se inscreve sozinho e já entra na lista.</span>
+    <details className="group card overflow-hidden">
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-sm [&::-webkit-details-marker]:hidden">
+        <span className="font-semibold">Inscrições</span>
+        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${open ? "bg-[#25D366]/15 text-[#128C4A]" : "bg-paper text-ink-2"}`}>
+          {open ? "pelo link" : "manual"}
+        </span>
+        <Chevron />
+      </summary>
+
+      <div className="space-y-3 border-t border-line p-3">
+        <div className="grid grid-cols-2 gap-1 rounded-lg bg-paper p-1 text-sm">
+          <button disabled={busy} onClick={() => setMode(true)} className={`h-9 rounded-md font-semibold ${open ? "bg-white shadow-sm" : "text-ink-3"}`}>
+            Pelo link
           </button>
-          <button disabled={busy} onClick={() => setMode(false)} className={opt(!open)}>
-            <span className="flex items-center gap-2 font-semibold">
-              <Radio on={!open} /> Eu inscrevo manualmente
-            </span>
-            <span className="ml-7 text-xs text-ink-3">Você cadastra os atletas (um a um ou colando a lista).</span>
+          <button disabled={busy} onClick={() => setMode(false)} className={`h-9 rounded-md font-semibold ${!open ? "bg-white shadow-sm" : "text-ink-3"}`}>
+            Manual
           </button>
         </div>
-      </div>
-
-      <div className="border-t border-line bg-paper p-4">
-        {!hasClasses ? (
-          <p className="mb-3 rounded-lg bg-amber-50 p-2 text-sm text-amber-800">
-            Primeiro cadastre ao menos uma classe na aba <b>Classes</b>.
-          </p>
-        ) : null}
+        {!hasClasses ? <p className="text-xs text-amber-700">Cadastre uma classe na aba Classes primeiro.</p> : null}
         {open ? (
-          <div className="flex flex-wrap gap-2">
-            <button onClick={whatsapp} className="btn bg-[#25D366] text-white hover:bg-[#1ebe5a]">
-              <WhatsIcon /> Mandar link no WhatsApp
-            </button>
-            <button onClick={copy} className="btn-ghost">{copied ? "Copiado ✓" : "Copiar link"}</button>
-            <button onClick={openQr} className="btn-ghost">QR</button>
-            <a href={`/eventos/${slug}/inscricao`} target="_blank" className="btn-ghost">Ver página ↗</a>
-          </div>
+          <>
+            <p className="text-xs text-ink-3">Cada velejador se inscreve sozinho e já entra na lista.</p>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={whatsapp} className="btn h-9 bg-[#25D366] px-3 text-white hover:bg-[#1ebe5a]">
+                <WhatsIcon /> Mandar link
+              </button>
+              <button onClick={copy} className="btn-ghost h-9 px-3">{copied ? "Copiado ✓" : "Copiar"}</button>
+              <button onClick={openQr} className="btn-ghost h-9 px-3">QR</button>
+              <a href={`/eventos/${slug}/inscricao`} target="_blank" className="btn-ghost h-9 px-3">Ver ↗</a>
+            </div>
+          </>
         ) : (
-          <button onClick={onManual} className="btn-primary">
-            + Inscrever atletas
-          </button>
+          <>
+            <p className="text-xs text-ink-3">Você cadastra os atletas (um a um ou colando a lista).</p>
+            <button onClick={onManual} className="btn-primary h-9 px-3">+ Inscrever atletas</button>
+          </>
         )}
       </div>
 
@@ -112,14 +105,14 @@ export default function RegistrationLink({
           </div>
         </div>
       ) : null}
-    </div>
+    </details>
   );
 }
 
-function Radio({ on }: { on: boolean }) {
+export function Chevron() {
   return (
-    <span className={`grid h-5 w-5 place-items-center rounded-full border-2 ${on ? "border-sea" : "border-ink-3/40"}`}>
-      {on ? <span className="h-2.5 w-2.5 rounded-full bg-sea" /> : null}
-    </span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" className="ml-auto text-ink-3 transition group-open:rotate-180" aria-hidden>
+      <path d="m6 9 6 6 6-6" />
+    </svg>
   );
 }

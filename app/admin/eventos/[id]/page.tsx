@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AuthGate, { type Organizer } from "@/components/AuthGate";
 import BackLink from "@/components/BackLink";
-import RegistrationLink from "@/components/RegistrationLink";
+import RegistrationLink, { Chevron } from "@/components/RegistrationLink";
 import ShareEvent from "@/components/ShareEvent";
 import StatusBadge from "@/components/StatusBadge";
 import { BR_STATES } from "@/lib/flags";
@@ -83,34 +83,41 @@ function EventAdmin({ org }: { org: Organizer }) {
   return (
     <div className="wrap max-w-4xl py-5 sm:py-8">
       <BackLink href="/admin">Meus eventos</BackLink>
-      <div className="mb-4 mt-2 flex flex-wrap items-center gap-3">
-        <h1 className="font-display text-3xl font-bold leading-tight">{ev.name}</h1>
+      <div className="mb-3 mt-3 flex flex-wrap items-center gap-2">
+        <h1 className="w-full font-display text-2xl font-bold leading-tight sm:text-3xl">{ev.name}</h1>
         <StatusBadge status={ev.status} />
         {ev.status !== "draft" ? (
-          <Link href={`/eventos/${ev.slug}`} target="_blank" className="ml-auto text-sm font-semibold text-sea">
+          <Link href={`/eventos/${ev.slug}`} target="_blank" className="text-sm font-semibold text-sea">
             Ver página pública ↗
           </Link>
         ) : null}
       </div>
 
-      <RegistrationLink
-        eventId={ev.id}
-        name={ev.name}
-        slug={ev.slug}
-        open={!!ev.registration_open}
-        hasClasses={classes.length > 0}
-        onChange={loadEvent}
-        onManual={() => setTab("inscritos")}
-      />
+      {/* janelas compactas que abrem e fecham */}
+      <div className="mb-4 grid gap-2 sm:grid-cols-2">
+        <RegistrationLink
+          eventId={ev.id}
+          name={ev.name}
+          slug={ev.slug}
+          open={!!ev.registration_open}
+          hasClasses={classes.length > 0}
+          onChange={loadEvent}
+          onManual={() => setTab("inscritos")}
+        />
+        {ev.status !== "draft" ? (
+          <details className="group card overflow-hidden">
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-sm [&::-webkit-details-marker]:hidden">
+              <span className="font-semibold">Compartilhar resultados</span>
+              <Chevron />
+            </summary>
+            <div className="border-t border-line p-3">
+              <ShareEvent name={ev.name} slug={ev.slug} compact />
+            </div>
+          </details>
+        ) : null}
+      </div>
 
-      {ev.status !== "draft" ? (
-        <div className="mb-4">
-          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-ink-3">Link dos resultados</p>
-          <ShareEvent name={ev.name} slug={ev.slug} compact />
-        </div>
-      ) : null}
-
-      <div className="-mx-4 mb-5 flex gap-1 overflow-x-auto border-b border-line px-4">
+      <div className="sticky top-14 z-10 -mx-4 mb-5 flex gap-1 overflow-x-auto border-b border-line bg-paper/95 px-4 backdrop-blur">
         {tabs.map(([t, label]) => (
           <button
             key={t}
