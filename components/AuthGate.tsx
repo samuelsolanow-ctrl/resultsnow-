@@ -28,7 +28,7 @@ export default function AuthGate({ children }: { children: (session: Session) =>
 }
 
 function Login() {
-  const [mode, setMode] = useState<"in" | "up">("in");
+  const mode = "in" as "in" | "up";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
@@ -67,9 +67,7 @@ function Login() {
         <button className="btn-primary w-full" disabled={busy}>
           {busy ? "Aguarde…" : mode === "in" ? "Entrar" : "Criar conta"}
         </button>
-        <button type="button" className="w-full text-sm text-sea" onClick={() => setMode(mode === "in" ? "up" : "in")}>
-          {mode === "in" ? "Não tenho conta — criar" : "Já tenho conta — entrar"}
-        </button>
+        <p className="text-center text-xs text-ink-3">Acesso só para organizadores autorizados.</p>
       </form>
     </div>
   );
