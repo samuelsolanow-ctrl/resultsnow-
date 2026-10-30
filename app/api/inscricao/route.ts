@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -8,7 +9,7 @@ const clip = (v: unknown, n = 120) => {
   return s || null;
 };
 
-/** Inscrição pública: entra como "pendente" até o organizador aprovar */
+/** Inscrição pública: o velejador se inscreve e já entra na lista do evento */
 export async function POST(req: Request) {
   const b = await req.json().catch(() => null);
   if (!b || b.website) return NextResponse.json({ ok: true }); // robô
@@ -17,13 +18,19 @@ export async function POST(req: Request) {
   if (!ev?.registration_open) return NextResponse.json({ error: "Inscrições fechadas." }, { status: 400 });
   const { data: cls } = await sb.from("classes").select("id, crew_size").eq("id", String(b.class_id ?? "")).eq("event_id", ev.id).maybeSingle();
   if (!cls) return NextResponse.json({ error: "Classe inválida." }, { status: 400 });
-  if (!clip(b.sail_number) || !clip(b.helm_name) || !clip(b.contact)) {
-    return NextResponse.json({ error: "Preencha nº de vela, nome e contato." }, { status: 400 });
+  if (!clip(b.sail_number) || !clip(b.helm_name) || !clip(b.club)) {
+    return NextResponse.json({ error: "Preencha numeral, nome e clube." }, { status: 400 });
+  }
+  // numeral repetido na mesma classe
+  const digits = (x: string) => x.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+  const { data: others } = await sb.from("entries").select("sail_number").eq("class_id", cls.id);
+  if ((others ?? []).some((o) => digits(o.sail_number) === digits(String(b.sail_number)))) {
+    return NextResponse.json({ error: "Esse numeral já está inscrito nesta classe. Fale com a organização se for engano." }, { status: 400 });
   }
   const duo = cls.crew_size > 1;
   const { error } = await sb.from("entries").insert({
     class_id: cls.id,
-    status: "pending",
+    status: "confirmed",
     sail_number: clip(b.sail_number, 20),
     country: clip(b.country, 3)?.toUpperCase() ?? null,
     state: clip(b.state, 2)?.toUpperCase() ?? null,
@@ -36,5 +43,6 @@ export async function POST(req: Request) {
     contact: clip(b.contact),
   });
   if (error) return NextResponse.json({ error: "Não foi possível salvar. Tente de novo." }, { status: 500 });
+  revalidatePath("/", "layout");
   return NextResponse.json({ ok: true });
 }

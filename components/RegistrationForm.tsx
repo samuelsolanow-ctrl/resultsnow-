@@ -45,9 +45,12 @@ export default function RegistrationForm({ slug, classes }: { slug: string; clas
     return (
       <div className="card p-6 text-center">
         <p className="text-4xl">⛵</p>
-        <h2 className="mt-2 font-display text-2xl font-bold">Inscrição enviada!</h2>
-        <p className="mt-1 text-sm text-ink-3">A organização vai conferir e confirmar. Seu barco aparece na súmula depois da aprovação.</p>
-        <a href={`/eventos/${slug}`} className="btn-primary mt-5">Ver o evento</a>
+        <h2 className="mt-2 font-display text-2xl font-bold">Inscrição feita!</h2>
+        <p className="mt-1 text-sm text-ink-3">Seu barco já está na lista do evento. Boas regatas!</p>
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
+          <a href={`/eventos/${slug}/inscricao`} className="btn-ghost">Inscrever outro barco</a>
+          <a href={`/eventos/${slug}`} className="btn-primary">Ver o evento</a>
+        </div>
       </div>
     );
 
@@ -60,7 +63,7 @@ export default function RegistrationForm({ slug, classes }: { slug: string; clas
         </select>
       </div>
       <div>
-        <label className="label">Nº de vela</label>
+        <label className="label">Numeral (nº de vela)</label>
         <input className="input" required value={f.sail_number} onChange={set("sail_number")} placeholder="BRA 215" />
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -98,15 +101,15 @@ export default function RegistrationForm({ slug, classes }: { slug: string; clas
       ) : null}
       <div>
         <label className="label">Clube</label>
-        <input className="input" value={f.club} onChange={set("club")} />
+        <input className="input" required value={f.club} onChange={set("club")} placeholder="YCSA, ICRJ, VDS…" />
       </div>
       <div>
         <label className="label">Divisão (se houver)</label>
         <input className="input" value={f.division} onChange={set("division")} placeholder="Feminino, Master, Sub-19…" />
       </div>
       <div className="sm:col-span-2">
-        <label className="label">WhatsApp ou e-mail para contato</label>
-        <input className="input" required value={f.contact} onChange={set("contact")} placeholder="(11) 99999-9999" />
+        <label className="label">WhatsApp para contato (opcional)</label>
+        <input className="input" inputMode="tel" value={f.contact} onChange={set("contact")} placeholder="(11) 99999-9999" />
       </div>
       <input type="text" tabIndex={-1} autoComplete="off" value={f.website} onChange={set("website")} className="hidden" aria-hidden />
       {err ? <p className="text-sm text-flag sm:col-span-2">{err}</p> : null}

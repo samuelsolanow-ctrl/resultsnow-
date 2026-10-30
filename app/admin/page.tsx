@@ -52,7 +52,7 @@ function Dashboard({ user, master }: { user: string; master: boolean }) {
     const slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
     const { data, error } = await db
       .from("events")
-      .insert({ name, venue: venue || null, start_date: start || null, end_date: end || start || null, slug, status: "draft" })
+      .insert({ name, venue: venue || null, start_date: start || null, end_date: end || start || null, slug, status: "draft", registration_open: true })
       .select()
       .single();
     setBusy(false);
