@@ -57,7 +57,7 @@ function Dashboard({ user }: { user: string }) {
       <div className="mb-6 flex items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-bold">Meus eventos</h1>
-          <p className="text-sm text-ink-3">Olá, {user}</p>
+          <p className="text-sm text-ink-3">Olá, {user.charAt(0).toUpperCase() + user.slice(1)}</p>
         </div>
         <button className="btn-ghost" onClick={logout}>Sair</button>
       </div>
