@@ -24,7 +24,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ raceId: 
     .single();
   if (!cls) return new Response("Classe não encontrada", { status: 404 });
 
-  const entries = (cls.entries ?? []) as EntryRow[];
+  const entries = ((cls.entries ?? []) as EntryRow[]).filter((e) => e.status !== "pending");
   const byId = new Map(entries.map((e) => [e.id, e]));
   // geral considera só as regatas até esta
   const races = (cls.races ?? [])

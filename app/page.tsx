@@ -1,11 +1,12 @@
 import EventCard from "@/components/EventCard";
-import { isPast, listPublicEvents } from "@/lib/data";
+import Link from "next/link";
+import { isPast, listCircuits, listPublicEvents } from "@/lib/data";
 import { isConfigured } from "@/lib/supabase";
 
 export const revalidate = 300;
 
 export default async function Home() {
-  const events = await listPublicEvents();
+  const [events, circuits] = await Promise.all([listPublicEvents(), listCircuits()]);
   const live = events.filter((e) => !isPast(e));
   const past = events.filter((e) => isPast(e));
 
@@ -30,6 +31,19 @@ export default async function Home() {
       <Section title="Em andamento" empty="Nenhum evento em andamento agora.">
         {live.map((ev) => <EventCard key={ev.id} ev={ev} />)}
       </Section>
+
+      {circuits.length ? (
+        <section className="mb-12">
+          <h2 className="mb-4 font-display text-2xl font-bold">Rankings</h2>
+          <div className="flex flex-wrap gap-2">
+            {circuits.map((c) => (
+              <Link key={c.slug} href={`/rankings/${c.slug}`} className="card flex items-center gap-2 px-4 py-3 font-semibold hover:border-ink-3">
+                <span className="text-sea">🏆</span> {c.name}
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <Section title="Eventos passados" empty="Ainda não há eventos encerrados.">
         {past.map((ev) => <EventCard key={ev.id} ev={ev} />)}

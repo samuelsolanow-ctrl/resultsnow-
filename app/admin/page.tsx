@@ -71,7 +71,10 @@ function Dashboard({ user, master }: { user: string; master: boolean }) {
             {master ? <span className="ml-2 rounded bg-night px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky">Master</span> : null}
           </p>
         </div>
-        <button className="btn-ghost" onClick={logout}>Sair</button>
+        <div className="flex gap-2">
+          <Link href="/admin/rankings" className="btn-ghost">Rankings</Link>
+          <button className="btn-ghost" onClick={logout}>Sair</button>
+        </div>
       </div>
 
       <form onSubmit={create} className="card mb-8 grid gap-3 p-4 sm:grid-cols-2">

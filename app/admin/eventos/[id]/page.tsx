@@ -9,7 +9,7 @@ import ShareEvent from "@/components/ShareEvent";
 import StatusBadge from "@/components/StatusBadge";
 import { BR_STATES } from "@/lib/flags";
 import { db, uploadCover } from "@/lib/adminDb";
-import type { ClassRow, DiscardRule, EntryRow, EventRow, FlagMode, RaceRow } from "@/lib/types";
+import type { ClassRow, DiscardRule, EntryRow, EventRow, FlagMode, NoticeRow, ProtestRow, RaceRow } from "@/lib/types";
 
 const CLASS_PRESETS: { name: string; crew: number }[] = [
   { name: "Finn", crew: 1 },
@@ -33,7 +33,7 @@ const CLASS_PRESETS: { name: string; crew: number }[] = [
   { name: "iQFOiL", crew: 1 },
 ];
 
-type Tab = "evento" | "classes" | "inscritos" | "regatas";
+type Tab = "evento" | "classes" | "inscritos" | "regatas" | "avisos";
 
 export default function EventAdminPage() {
   return <AuthGate>{() => <EventAdmin />}</AuthGate>;
@@ -71,6 +71,7 @@ function EventAdmin() {
     ["classes", `Classes (${classes.length})`],
     ["inscritos", "Inscritos"],
     ["regatas", "Regatas"],
+    ["avisos", "Avisos e protestos"],
   ];
 
   return (
@@ -111,6 +112,7 @@ function EventAdmin() {
       </div>
 
       {tab === "evento" ? <EventForm ev={ev} onSaved={loadEvent} /> : null}
+      {tab === "avisos" ? <NoticesTab eventId={ev.id} /> : null}
       {tab === "classes" ? <ClassesTab eventId={ev.id} classes={classes} onChange={loadClasses} /> : null}
       {(tab === "inscritos" || tab === "regatas") && !classes.length ? (
         <p className="text-sm text-ink-3">Cadastre uma classe primeiro.</p>
@@ -169,6 +171,7 @@ function EventForm({ ev, onSaved }: { ev: EventRow; onSaved: () => void }) {
         flag_mode: next.flag_mode,
         status: next.status,
         cover_url: next.cover_url,
+        registration_open: !!next.registration_open,
       })
       .eq("id", ev.id);
     setMsg(error ? error.message : "Salvo.");
@@ -247,6 +250,18 @@ function EventForm({ ev, onSaved }: { ev: EventRow; onSaved: () => void }) {
             <option value="finished">Encerrado (vai para passados)</option>
           </select>
         </div>
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-paper p-3 sm:col-span-2">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-5 w-5 accent-[#1F7F96]"
+            checked={!!f.registration_open}
+            onChange={(e) => setF({ ...f, registration_open: e.target.checked })}
+          />
+          <span>
+            <span className="block text-sm font-semibold">Inscrições abertas pelo link</span>
+            <span className="block text-xs text-ink-3">Aparece o botão “Inscrever-se” na página do evento. Você aprova cada inscrição na aba Inscritos.</span>
+          </span>
+        </label>
         <div className="flex items-center gap-3 sm:col-span-2">
           <button className="btn-primary" onClick={() => save()}>Salvar</button>
           {msg ? <span className="text-sm text-ink-3">{msg}</span> : null}
@@ -350,7 +365,8 @@ function ClassesTab({ eventId, classes, onChange }: { eventId: string; classes: 
 
 /* ---------------- Inscritos ---------------- */
 
-const emptyEntry = { sail_number: "", country: "BRA", state: "", club: "", helm_name: "", helm_cbvela: "", crew_name: "", crew_cbvela: "" };
+const emptyEntry = { sail_number: "", country: "BRA", state: "", club: "", helm_name: "", helm_cbvela: "", crew_name: "", crew_cbvela: "", division: "" };
+const DIVISION_HINTS = ["Feminino", "Masculino", "Master", "Grand Master", "Sub-21", "Sub-19", "Sub-17", "Sub-15", "Estreante", "Veterano"];
 
 function EntriesTab({ cls }: { cls: ClassRow }) {
   const sb = db;
@@ -386,6 +402,8 @@ function EntriesTab({ cls }: { cls: ClassRow }) {
     helm_cbvela: x.helm_cbvela.trim() || null,
     crew_name: duo ? x.crew_name.trim() || null : null,
     crew_cbvela: duo ? x.crew_cbvela.trim() || null : null,
+    // só envia a divisão quando preenchida
+    ...(x.division.trim() ? { division: x.division.trim() } : {}),
   });
 
   async function save(e: React.FormEvent) {
@@ -412,8 +430,18 @@ function EntriesTab({ cls }: { cls: ClassRow }) {
       helm_cbvela: en.helm_cbvela ?? "",
       crew_name: en.crew_name ?? "",
       crew_cbvela: en.crew_cbvela ?? "",
+      division: en.division ?? "",
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  const pending = entries.filter((e) => e.status === "pending");
+  const confirmed = entries.filter((e) => e.status !== "pending");
+
+  async function approve(en: EntryRow) {
+    const { error } = await sb.from("entries").update({ status: "confirmed" }).eq("id", en.id);
+    if (error) return setMsg(error.message);
+    load();
   }
 
   async function del(en: EntryRow) {
@@ -438,8 +466,9 @@ function EntriesTab({ cls }: { cls: ClassRow }) {
         club: c[3] ?? "",
         helm_name: c[4] ?? "",
         helm_cbvela: c[5] ?? "",
-        crew_name: c[6] ?? "",
-        crew_cbvela: c[7] ?? "",
+        crew_name: duo ? c[6] ?? "" : "",
+        crew_cbvela: (duo ? c[7] : "") ?? "",
+        division: (duo ? c[8] : c[6]) ?? "",
       })
     );
     const { error } = await sb.from("entries").insert(payload);
@@ -493,6 +522,13 @@ function EntriesTab({ cls }: { cls: ClassRow }) {
             </div>
           </>
         ) : null}
+        <div className="sm:col-span-2">
+          <label className="label">Divisão (opcional)</label>
+          <input className="input" list="division-hints" value={f.division} onChange={(e) => setF({ ...f, division: e.target.value })} placeholder="Feminino, Master, Sub-19…" />
+          <datalist id="division-hints">
+            {DIVISION_HINTS.map((d) => <option key={d} value={d} />)}
+          </datalist>
+        </div>
         {msg ? <p className="text-sm text-ink-2 sm:col-span-4">{msg}</p> : null}
         <div className="flex gap-2 sm:col-span-4">
           <button className="btn-primary">{editing ? "Salvar" : "Adicionar"}</button>
@@ -510,7 +546,7 @@ function EntriesTab({ cls }: { cls: ClassRow }) {
             Cole da planilha (uma linha por barco, colunas separadas por tab ou <b>;</b>) nesta ordem:
           </p>
           <p className="rounded bg-paper p-2 font-mono text-xs text-ink-2">
-            Nº vela ; País ; UF ; Clube ; {duo ? "Timoneiro" : "Velejador"} ; ID CBVela{duo ? " ; Proeiro ; ID CBVela proeiro" : ""}
+            Nº vela ; País ; UF ; Clube ; {duo ? "Timoneiro" : "Velejador"} ; ID CBVela{duo ? " ; Proeiro ; ID CBVela proeiro" : ""} ; Divisão
           </p>
           <textarea
             className="input h-40 py-2 font-mono text-xs"
@@ -522,15 +558,36 @@ function EntriesTab({ cls }: { cls: ClassRow }) {
         </div>
       ) : null}
 
+      {pending.length ? (
+        <div className="card divide-y divide-line border-amber-300">
+          <p className="bg-amber-50 p-3 text-xs font-semibold uppercase tracking-wide text-amber-700">
+            {pending.length} inscrição{pending.length > 1 ? "ões" : ""} pelo link aguardando aprovação
+          </p>
+          {pending.map((en) => (
+            <div key={en.id} className="flex flex-wrap items-center gap-2 p-3 text-sm">
+              <span className="num w-20 shrink-0 font-semibold">{en.sail_number}</span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium">{en.helm_name}{en.crew_name ? ` / ${en.crew_name}` : ""}</p>
+                <p className="truncate text-xs text-ink-3">
+                  {[en.country, en.state, en.club, en.division, en.helm_cbvela ? `CBVela ${en.helm_cbvela}` : null, en.contact].filter(Boolean).join(" · ")}
+                </p>
+              </div>
+              <button className="btn-primary h-8 px-3" onClick={() => approve(en)}>Aprovar</button>
+              <button className="btn-ghost h-8 px-3" onClick={() => del(en)}>Recusar</button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       <div className="card divide-y divide-line">
-        <p className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-3">{entries.length} inscritos</p>
-        {entries.map((en) => (
+        <p className="p-3 text-xs font-semibold uppercase tracking-wide text-ink-3">{confirmed.length} inscritos</p>
+        {confirmed.map((en) => (
           <div key={en.id} className="flex items-center gap-3 p-3 text-sm">
             <span className="num w-20 shrink-0 font-semibold">{en.sail_number}</span>
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium">{en.helm_name}{en.crew_name ? ` / ${en.crew_name}` : ""}</p>
               <p className="truncate text-xs text-ink-3">
-                {[en.country, en.state, en.club, en.helm_cbvela ? `CBVela ${en.helm_cbvela}` : null].filter(Boolean).join(" · ")}
+                {[en.country, en.state, en.club, en.division, en.helm_cbvela ? `CBVela ${en.helm_cbvela}` : null].filter(Boolean).join(" · ")}
               </p>
             </div>
             <button className="text-sea" onClick={() => edit(en)}>Editar</button>
@@ -589,6 +646,182 @@ function RacesTab({ cls }: { cls: ClassRow }) {
         ))}
         {!races.length ? <p className="p-3 text-sm text-ink-3">Nenhuma regata lançada.</p> : null}
       </div>
+    </div>
+  );
+}
+
+/* ---------------- Avisos e protestos ---------------- */
+
+const PROTEST_STATUS = ["Agendado", "Em audiência", "Decidido", "Retirado"];
+
+function NoticesTab({ eventId }: { eventId: string }) {
+  const [notices, setNotices] = useState<NoticeRow[]>([]);
+  const [protests, setProtests] = useState<ProtestRow[]>([]);
+  const [n, setN] = useState({ title: "", body: "" });
+  const emptyP = { number: "", race: "", protestor: "", protestee: "", hearing_at: "", room: "", status: "Agendado", decision: "" };
+  const [p, setP] = useState({ ...emptyP });
+  const [editingP, setEditingP] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const [a, b] = await Promise.all([
+      db.from("notices").select("*").eq("event_id", eventId).order("created_at", { ascending: false }),
+      db.from("protests").select("*").eq("event_id", eventId).order("number"),
+    ]);
+    if (a.error) setMsg("Rode o SQL das novas funções no Supabase para usar avisos e protestos.");
+    setNotices((a.data as NoticeRow[]) ?? []);
+    setProtests((b.data as ProtestRow[]) ?? []);
+  }, [eventId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function addNotice(e: React.FormEvent) {
+    e.preventDefault();
+    const { error } = await db.from("notices").insert({ event_id: eventId, title: n.title.trim(), body: n.body.trim() || null });
+    if (error) return setMsg(error.message);
+    setN({ title: "", body: "" });
+    load();
+  }
+
+  async function delNotice(id: string) {
+    if (!confirm("Apagar este aviso?")) return;
+    await db.from("notices").delete().eq("id", id);
+    load();
+  }
+
+  async function saveProtest(e: React.FormEvent) {
+    e.preventDefault();
+    const row = {
+      event_id: eventId,
+      number: p.number ? Number(p.number) : null,
+      race: p.race.trim() || null,
+      protestor: p.protestor.trim(),
+      protestee: p.protestee.trim() || null,
+      hearing_at: p.hearing_at.trim() || null,
+      room: p.room.trim() || null,
+      status: p.status,
+      decision: p.decision.trim() || null,
+    };
+    const { error } = editingP
+      ? await db.from("protests").update(row).eq("id", editingP)
+      : await db.from("protests").insert(row);
+    if (error) return setMsg(error.message);
+    setP({ ...emptyP });
+    setEditingP(null);
+    load();
+  }
+
+  function editProtest(x: ProtestRow) {
+    setEditingP(x.id);
+    setP({
+      number: x.number != null ? String(x.number) : "",
+      race: x.race ?? "",
+      protestor: x.protestor,
+      protestee: x.protestee ?? "",
+      hearing_at: x.hearing_at ?? "",
+      room: x.room ?? "",
+      status: x.status,
+      decision: x.decision ?? "",
+    });
+  }
+
+  async function delProtest(id: string) {
+    if (!confirm("Apagar este protesto?")) return;
+    await db.from("protests").delete().eq("id", id);
+    load();
+  }
+
+  return (
+    <div className="space-y-8">
+      {msg ? <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{msg}</p> : null}
+
+      <section className="space-y-3">
+        <h2 className="font-display text-2xl font-bold">Quadro de avisos</h2>
+        <form onSubmit={addNotice} className="card space-y-3 p-4">
+          <div>
+            <label className="label">Título</label>
+            <input className="input" required value={n.title} onChange={(e) => setN({ ...n, title: e.target.value })} placeholder="Alteração nº 1 das Instruções de Regata" />
+          </div>
+          <div>
+            <label className="label">Texto</label>
+            <textarea className="input h-24 py-2" value={n.body} onChange={(e) => setN({ ...n, body: e.target.value })} placeholder="Largada da classe ILCA 7 adiada para 13h…" />
+          </div>
+          <button className="btn-primary">Publicar aviso</button>
+        </form>
+        <div className="card divide-y divide-line">
+          {notices.map((x) => (
+            <div key={x.id} className="flex gap-3 p-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-ink-3">{new Date(x.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" })}</p>
+                <p className="font-semibold">{x.title}</p>
+                {x.body ? <p className="whitespace-pre-line text-sm text-ink-2">{x.body}</p> : null}
+              </div>
+              <button className="h-8 text-sm text-red-700" onClick={() => delNotice(x.id)}>Apagar</button>
+            </div>
+          ))}
+          {!notices.length ? <p className="p-3 text-sm text-ink-3">Nenhum aviso publicado.</p> : null}
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="font-display text-2xl font-bold">Protestos e audiências</h2>
+        <form onSubmit={saveProtest} className="card grid gap-3 p-4 sm:grid-cols-4">
+          <div>
+            <label className="label">Nº</label>
+            <input className="input" inputMode="numeric" value={p.number} onChange={(e) => setP({ ...p, number: e.target.value })} placeholder="1" />
+          </div>
+          <div>
+            <label className="label">Regata</label>
+            <input className="input" value={p.race} onChange={(e) => setP({ ...p, race: e.target.value })} placeholder="ILCA 7 · R3" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="label">Situação</label>
+            <select className="input" value={p.status} onChange={(e) => setP({ ...p, status: e.target.value })}>
+              {PROTEST_STATUS.map((x) => <option key={x}>{x}</option>)}
+            </select>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="label">Protestante</label>
+            <input className="input" required value={p.protestor} onChange={(e) => setP({ ...p, protestor: e.target.value })} placeholder="BRA 215 João Silva" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="label">Protestado</label>
+            <input className="input" value={p.protestee} onChange={(e) => setP({ ...p, protestee: e.target.value })} placeholder="BRA 51 Pedro Lima" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="label">Audiência (dia e hora)</label>
+            <input className="input" value={p.hearing_at} onChange={(e) => setP({ ...p, hearing_at: e.target.value })} placeholder="Sáb 17h30" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="label">Local</label>
+            <input className="input" value={p.room} onChange={(e) => setP({ ...p, room: e.target.value })} placeholder="Sala do júri" />
+          </div>
+          <div className="sm:col-span-4">
+            <label className="label">Decisão</label>
+            <textarea className="input h-20 py-2" value={p.decision} onChange={(e) => setP({ ...p, decision: e.target.value })} placeholder="Protesto procedente, BRA 51 DSQ na R3" />
+          </div>
+          <div className="flex gap-2 sm:col-span-4">
+            <button className="btn-primary">{editingP ? "Salvar" : "Adicionar protesto"}</button>
+            {editingP ? <button type="button" className="btn-ghost" onClick={() => { setEditingP(null); setP({ ...emptyP }); }}>Cancelar</button> : null}
+          </div>
+        </form>
+        <div className="card divide-y divide-line">
+          {protests.map((x) => (
+            <div key={x.id} className="flex items-center gap-3 p-3 text-sm">
+              <span className="w-10 font-display text-lg font-bold">{x.number ?? "—"}</span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium">{x.protestor}{x.protestee ? ` × ${x.protestee}` : ""}</p>
+                <p className="truncate text-xs text-ink-3">{[x.race, x.status, x.hearing_at, x.room].filter(Boolean).join(" · ")}</p>
+              </div>
+              <button className="text-sea" onClick={() => editProtest(x)}>Editar</button>
+              <button className="text-red-700" onClick={() => delProtest(x.id)}>×</button>
+            </div>
+          ))}
+          {!protests.length ? <p className="p-3 text-sm text-ink-3">Nenhum protesto.</p> : null}
+        </div>
+      </section>
     </div>
   );
 }

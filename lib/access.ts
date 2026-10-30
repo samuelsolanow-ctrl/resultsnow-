@@ -33,6 +33,7 @@ async function eventIdsFor(sb: SupabaseClient, table: string, ops: Op[]): Promis
     else if (kind === "classes") ev = (await sb.from("classes").select("event_id").eq("id", value).maybeSingle()).data?.event_id ?? null;
     else if (kind === "races") ev = pick((await sb.from("races").select("classes(event_id)").eq("id", value).maybeSingle()).data);
     else if (kind === "entries") ev = pick((await sb.from("entries").select("classes(event_id)").eq("id", value).maybeSingle()).data);
+    else if (kind === "notices" || kind === "protests") ev = (await sb.from(kind).select("event_id").eq("id", value).maybeSingle()).data?.event_id ?? null;
     else continue;
     if (!ev) return null;
     ids.add(ev);
@@ -45,10 +46,29 @@ export async function checkAccess(sb: SupabaseClient, user: string, master: bool
   if (master) return null;
   if (!ops.some((o) => WRITES.has(o.m))) return null; // leitura liberada (resultados são públicos)
   if (table === "events" && ops.some((o) => o.m === "insert")) return null; // criar o próprio evento
+  if (table === "circuits" || table === "circuit_events") return circuitAccess(sb, user, table, ops);
   const ids = await eventIdsFor(sb, table, ops);
   if (!ids) return "Operação não permitida.";
   const { data } = await sb.from("events").select("id, organizer").in("id", ids);
   const rows = (data ?? []) as { id: string; organizer: string | null }[];
   const ok = rows.length === ids.length && rows.every((e) => (e.organizer ?? "").toLowerCase() === user.toLowerCase());
   return ok ? null : "Você só pode alterar os seus eventos.";
+}
+
+/** Circuitos: cada um mexe só nos rankings que criou */
+async function circuitAccess(sb: SupabaseClient, user: string, table: string, ops: Op[]): Promise<string | null> {
+  if (table === "circuits" && ops.some((o) => o.m === "insert")) return null;
+  const ids = new Set<string>();
+  for (const op of ops) {
+    if (op.m === "eq" && ((table === "circuits" && op.a[0] === "id") || op.a[0] === "circuit_id")) ids.add(String(op.a[1]));
+    if (op.m === "insert" || op.m === "upsert") {
+      const rows = Array.isArray(op.a[0]) ? op.a[0] : [op.a[0]];
+      for (const r of rows as Record<string, unknown>[]) if (r?.circuit_id) ids.add(String(r.circuit_id));
+    }
+  }
+  if (!ids.size) return "Operação não permitida.";
+  const { data } = await sb.from("circuits").select("id, organizer").in("id", [...ids]);
+  const rows = (data ?? []) as { id: string; organizer: string | null }[];
+  const ok = rows.length === ids.size && rows.every((c) => (c.organizer ?? "").toLowerCase() === user.toLowerCase());
+  return ok ? null : "Você só pode alterar os seus rankings.";
 }

@@ -71,10 +71,23 @@ export default async function EventPage({ params }: Props) {
       </div>
 
       <div className="wrap py-5 sm:py-8">
-        <div className="mb-5">
+        <div className="mb-5 flex flex-wrap items-center gap-2">
           <ShareEvent name={ev.name} slug={ev.slug} />
+          {ev.registration_open ? (
+            <Link href={`/eventos/${ev.slug}/inscricao`} className="btn-primary">
+              Inscrever-se
+            </Link>
+          ) : null}
         </div>
-        <EventResults eventName={ev.name} subtitle={subtitle} flagMode={ev.flag_mode} classes={classes} updated={updated} />
+        <EventResults
+          eventName={ev.name}
+          subtitle={subtitle}
+          flagMode={ev.flag_mode}
+          classes={classes}
+          updated={updated}
+          notices={ev.notices}
+          protests={ev.protests}
+        />
       </div>
     </div>
   );

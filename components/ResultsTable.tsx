@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Flags from "./Flags";
 import type { Standing } from "@/lib/scoring";
 import type { FlagMode, RaceRow } from "@/lib/types";
@@ -12,12 +13,22 @@ export default function ResultsTable({
   races,
   flagMode,
   crewSize,
+  followed = [],
+  onFollow,
 }: {
   standings: Standing[];
   races: Pick<RaceRow, "id" | "number">[];
   flagMode: FlagMode;
   crewSize: number;
+  followed?: string[];
+  onFollow?: (entryId: string) => void;
 }) {
+  // barcos seguidos aparecem no topo, destacados, e também na posição normal
+  const pinned = standings.filter((s) => followed.includes(s.entry.id));
+  const rows: { s: Standing; pin: boolean }[] = [
+    ...pinned.map((s) => ({ s, pin: true })),
+    ...standings.map((s) => ({ s, pin: false })),
+  ];
   const th = "px-2 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-3 whitespace-nowrap";
   const wide = "hidden lg:table-cell";
   return (
@@ -41,19 +52,32 @@ export default function ResultsTable({
           </tr>
         </thead>
         <tbody>
-          {standings.map((s, i) => {
-            const bg = i % 2 ? "bg-paper" : "bg-white";
+          {rows.map(({ s, pin }, i) => {
+            const star = followed.includes(s.entry.id);
+            const bg = pin ? "bg-sky-100" : star ? "bg-sky-50" : i % 2 ? "bg-paper" : "bg-white";
             const td = `border-b border-line ${bg}`;
             const e = s.entry;
             const dual = crewSize > 1 && e.crew_name;
             return (
-              <tr key={e.id} className="align-middle">
-                <td className={`${td} sticky left-0 z-[1] w-10 px-2 py-2 text-center`}>
-                  <span className={`num font-display text-lg font-bold ${s.rank <= 3 ? "text-sea" : ""}`}>{s.rank}</span>
+              <tr key={`${pin ? "p" : "r"}-${e.id}`} className="align-middle">
+                <td className={`${td} sticky left-0 z-[1] w-10 px-1 py-2 text-center ${pin && i === pinned.length - 1 ? "border-b-2 border-b-sky-600" : ""}`}>
+                  <span className={`num block font-display text-lg font-bold leading-6 ${s.rank <= 3 ? "text-sea" : ""}`}>{s.rank}</span>
+                  {onFollow ? (
+                    <button
+                      onClick={() => onFollow(e.id)}
+                      aria-label={star ? "Deixar de seguir" : "Seguir este barco"}
+                      className={`text-sm leading-4 ${star ? "text-amber-500" : "text-ink-3/50 hover:text-amber-500"}`}
+                    >
+                      {star ? "★" : "☆"}
+                    </button>
+                  ) : null}
                 </td>
                 <td className={`${td} sticky left-10 z-[1] max-w-[190px] px-2 py-2 shadow-[6px_0_8px_-8px_rgba(0,0,0,0.25)] sm:max-w-[260px] lg:shadow-none`}>
-                  <div className="truncate font-semibold leading-5">{e.helm_name}</div>
+                  <Link href={`/velejador/${e.id}`} className="block truncate font-semibold leading-5 hover:text-sea hover:underline">
+                    {e.helm_name}
+                  </Link>
                   {dual ? <div className="truncate text-xs leading-5 text-ink-3">{e.crew_name}</div> : null}
+                  {e.division ? <span className="mr-1 rounded bg-sea-50 px-1 text-[10px] font-semibold text-sea">{e.division}</span> : null}
                   <div className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-ink-3 lg:hidden">
                     <Flags mode={flagMode} country={e.country} state={e.state} />
                     <span className="num font-semibold text-ink-2">{e.sail_number}</span>

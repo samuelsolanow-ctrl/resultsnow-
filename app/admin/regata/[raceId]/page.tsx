@@ -8,6 +8,7 @@ import BackLink from "@/components/BackLink";
 import RaceShare from "@/components/RaceShare";
 import { db } from "@/lib/adminDb";
 import { CODE_LABELS, KEEP_PLACE_CODES, POINTS_CODES, computeStandings } from "@/lib/scoring";
+import { parsePtNumbers } from "@/lib/ptNumbers";
 import { sailDigits } from "@/lib/slug";
 import type { ClassRow, EntryRow, EventRow, RaceRow, ResultRow } from "@/lib/types";
 
@@ -21,6 +22,8 @@ const ALL_CODES = [...QUICK_CODES, "DNE", "DGM", "RDG"];
 const FINISH_MARKS = ["", "TIE", ...KEEP_PLACE_CODES];
 const isKeep = (c?: string) => !!c && (KEEP_PLACE_CODES as readonly string[]).includes(c);
 const isPts = (c?: string) => !!c && (POINTS_CODES as readonly string[]).includes(c);
+
+type Draft = { order: string[]; codes: Record<string, string>; tied: string[]; pts: Record<string, string>; date: string; t: number };
 
 type Loaded = {
   race: RaceRow;
@@ -49,6 +52,20 @@ function RaceEditor() {
   const [saved, setSaved] = useState(false);
   const [moreCodes, setMoreCodes] = useState(false);
   const filterRef = useRef<HTMLInputElement>(null);
+  // sem sinal: rascunho no celular + envio automático quando a internet volta
+  const [pendingSync, setPendingSync] = useState(false);
+  const [draftFound, setDraftFound] = useState<Draft | null>(null);
+  const draftKey = `rn-draft-${raceId}`;
+  const saveRef = useRef<() => void>(() => {});
+  const pendingSyncRef = useRef(false);
+  pendingSyncRef.current = pendingSync;
+  // voz
+  const [listening, setListening] = useState(false);
+  const [heard, setHeard] = useState("");
+  const listeningRef = useRef(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recRef = useRef<any>(null);
+  const speechRef = useRef<(t: string) => void>(() => {});
 
   useEffect(() => {
     (async () => {
@@ -60,7 +77,7 @@ function RaceEditor() {
         .single();
       if (!race) return;
       const { events: ev, entries, races, ...cls } = race.classes;
-      const list = ((entries as EntryRow[]) ?? []).sort((a, b) =>
+      const list = ((entries as EntryRow[]) ?? []).filter((e) => e.status !== "pending").sort((a, b) =>
         a.sail_number.localeCompare(b.sail_number, "pt-BR", { numeric: true })
       );
       const allRaces = ((races ?? []) as (RaceRow & { results: ResultRow[] })[]).sort((x, y) => x.number - y.number);
@@ -71,6 +88,12 @@ function RaceEditor() {
       setCodes(Object.fromEntries(mine.filter((r) => r.code && r.code !== "DNC").map((r) => [r.entry_id, r.code!])));
       setPts(Object.fromEntries(mine.filter((r) => r.points != null).map((r) => [r.entry_id, String(r.points)])));
       setDate(race.sailed_on ?? "");
+      try {
+        const d = localStorage.getItem(`rn-draft-${raceId}`);
+        if (d) setDraftFound(JSON.parse(d));
+      } catch {
+        /* sem armazenamento */
+      }
       setData({
         race: { id: race.id, class_id: race.class_id, number: race.number, sailed_on: race.sailed_on },
         cls: cls as ClassRow,
@@ -95,6 +118,34 @@ function RaceEditor() {
     return pending.filter((e) => (d && sailDigits(e.sail_number).startsWith(d)) || e.helm_name.toLowerCase().includes(f));
   }, [pending, filter]);
 
+  // guarda o rascunho no celular a cada mudança
+  useEffect(() => {
+    if (!dirty) return;
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({ order, codes, tied, pts, date, t: Date.now() }));
+    } catch {
+      /* sem armazenamento */
+    }
+  }, [dirty, order, codes, tied, pts, date, draftKey]);
+
+  // internet voltou: envia o que ficou pendente
+  useEffect(() => {
+    const on = () => {
+      if (pendingSyncRef.current) saveRef.current();
+    };
+    window.addEventListener("online", on);
+    return () => window.removeEventListener("online", on);
+  }, []);
+
+  // desliga o microfone ao sair da tela
+  useEffect(
+    () => () => {
+      listeningRef.current = false;
+      recRef.current?.stop?.();
+    },
+    []
+  );
+
   if (!data) return <p className="p-8 text-center text-sm text-ink-3">Carregando…</p>;
   const { race, cls, ev, entries } = data;
 
@@ -113,6 +164,103 @@ function RaceEditor() {
     }
     setFilter("");
     if (navigator.vibrate) navigator.vibrate(15);
+  }
+
+  /** vários barcos de uma vez (usado pela voz) */
+  function tapMany(ids: string[]) {
+    if (!ids.length) return;
+    snapshot();
+    if (mode === "FIN") setOrder((o) => [...o, ...ids.filter((x) => !o.includes(x))]);
+    else setCodes((c) => ({ ...c, ...Object.fromEntries(ids.map((x) => [x, mode])) }));
+    if (navigator.vibrate) navigator.vibrate(25);
+  }
+
+  speechRef.current = (text: string) => {
+    const nums = parsePtNumbers(text);
+    const ids: string[] = [];
+    const miss: number[] = [];
+    for (const n of nums) {
+      const m = pending.filter((e) => sailDigits(e.sail_number) === String(n) && !ids.includes(e.id));
+      if (m.length === 1) ids.push(m[0].id);
+      else miss.push(n);
+    }
+    tapMany(ids);
+    setMsg(miss.length ? `Não achei (ou já lançado): ${miss.join(", ")}` : null);
+  };
+
+  function toggleVoice() {
+    if (listening) {
+      listeningRef.current = false;
+      setListening(false);
+      recRef.current?.stop?.();
+      setHeard("");
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const w = window as any;
+    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!SR) return setMsg("Este navegador não reconhece voz. No iPhone use o Safari; no Android, o Chrome.");
+    const rec = new SR();
+    rec.lang = "pt-BR";
+    rec.continuous = true;
+    rec.interimResults = true;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rec.onresult = (ev: any) => {
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        const t = ev.results[i][0].transcript as string;
+        if (ev.results[i].isFinal) {
+          setHeard(t);
+          speechRef.current(t);
+        } else setHeard(t + "…");
+      }
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rec.onerror = (e: any) => {
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        listeningRef.current = false;
+        setListening(false);
+        setMsg("Libere o microfone para o site nas configurações do navegador.");
+      }
+    };
+    rec.onend = () => {
+      // o celular para de ouvir depois de um silêncio: religa enquanto estiver ativo
+      if (listeningRef.current) {
+        try {
+          rec.start();
+        } catch {
+          /* já ligado */
+        }
+      }
+    };
+    recRef.current = rec;
+    listeningRef.current = true;
+    setListening(true);
+    setMsg(null);
+    try {
+      rec.start();
+    } catch {
+      /* já ligado */
+    }
+  }
+
+  function restoreDraft() {
+    if (!draftFound) return;
+    setOrder(draftFound.order ?? []);
+    setCodes(draftFound.codes ?? {});
+    setTied(draftFound.tied ?? []);
+    setPts(draftFound.pts ?? {});
+    if (draftFound.date) setDate(draftFound.date);
+    setDraftFound(null);
+    setDirty(true);
+  }
+
+  function discardDraft() {
+    try {
+      localStorage.removeItem(draftKey);
+    } catch {
+      /* ok */
+    }
+    setDraftFound(null);
   }
 
   function undo() {
@@ -191,13 +339,30 @@ function RaceEditor() {
     ];
   }
 
+  const isNetwork = (m?: string) => !!m && /fetch|network|load failed|internet|offline/i.test(m);
+
   async function save() {
     setBusy(true);
     setMsg(null);
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setBusy(false);
+      setPendingSync(true);
+      return;
+    }
     const rows = buildRows();
     const del = await db.from("results").delete().eq("race_id", race.id);
+    if (isNetwork(del.error?.message)) {
+      setBusy(false);
+      setPendingSync(true);
+      return;
+    }
     const ins = del.error ? del : await db.from("results").insert(rows);
     const upd = await db.from("races").update({ sailed_on: date || null }).eq("id", race.id);
+    if (isNetwork(ins.error?.message) || isNetwork(upd.error?.message)) {
+      setBusy(false);
+      setPendingSync(true);
+      return;
+    }
     // primeira regata salva publica o evento
     if (!ins.error && ev.status === "draft") {
       await db.from("events").update({ status: "live" }).eq("id", ev.id);
@@ -206,9 +371,16 @@ function RaceEditor() {
     setBusy(false);
     const error = ins.error ?? upd.error;
     if (error) return setMsg(error.message);
+    try {
+      localStorage.removeItem(draftKey);
+    } catch {
+      /* ok */
+    }
+    setPendingSync(false);
     setDirty(false);
     setSaved(true);
   }
+  saveRef.current = save;
 
   async function nextRace() {
     const nextNumber = Math.max(...data!.races.map((r) => r.number)) + 1;
@@ -272,15 +444,47 @@ function RaceEditor() {
           </ModeChip>
         </div>
 
+        {draftFound ? (
+          <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 p-2 text-sm text-amber-800">
+            <span className="flex-1">Há um rascunho não enviado desta regata.</span>
+            <button className="btn h-8 bg-amber-600 px-3 text-white" onClick={restoreDraft}>Recuperar</button>
+            <button className="btn h-8 px-3 text-amber-800" onClick={discardDraft}>Descartar</button>
+          </div>
+        ) : null}
+        {pendingSync ? (
+          <div className="mt-2 flex items-center gap-2 rounded-lg bg-amber-50 p-2 text-sm text-amber-800">
+            <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-amber-500" />
+            Sem sinal. A regata está guardada no celular e é enviada sozinha quando a internet voltar.
+          </div>
+        ) : null}
+        {listening ? (
+          <div className="mt-2 flex items-center gap-2 rounded-lg bg-red-50 p-2 text-sm text-flag">
+            <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-flag" />
+            <span className="min-w-0 flex-1 truncate">{heard || "Ouvindo… fale os números na ordem de chegada"}</span>
+          </div>
+        ) : null}
+        <div className="mt-2 flex gap-2">
         <input
           ref={filterRef}
-          className="input mt-2"
+          className="input min-w-0 flex-1"
           inputMode="numeric"
           placeholder="Digite o nº de vela e Enter"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), onFilterEnter())}
         />
+          <button
+            onClick={toggleVoice}
+            className={`btn h-10 shrink-0 px-3 ${listening ? "bg-flag text-white" : "border border-line bg-white text-ink"}`}
+            aria-label={listening ? "Parar ditado" : "Ditar números por voz"}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+              <rect x="9" y="3" width="6" height="11" rx="3" />
+              <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+            </svg>
+            {listening ? "Parar" : "Voz"}
+          </button>
+        </div>
       </div>
 
       <div className="px-4 sm:px-6">

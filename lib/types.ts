@@ -20,6 +20,7 @@ export interface EventRow {
   cover_url: string | null;
   flag_mode: FlagMode;
   status: EventStatus;
+  registration_open?: boolean;
   created_at: string;
 }
 
@@ -43,6 +44,39 @@ export interface EntryRow {
   helm_cbvela: string | null;
   crew_name: string | null;
   crew_cbvela: string | null;
+  division?: string | null;
+  status?: string | null;
+  contact?: string | null;
+}
+
+export interface NoticeRow {
+  id: string;
+  event_id: string;
+  title: string;
+  body: string | null;
+  created_at: string;
+}
+
+export interface ProtestRow {
+  id: string;
+  event_id: string;
+  number: number | null;
+  race: string | null;
+  protestor: string;
+  protestee: string | null;
+  hearing_at: string | null;
+  room: string | null;
+  status: string;
+  decision: string | null;
+  created_at: string;
+}
+
+export interface CircuitRow {
+  id: string;
+  slug: string;
+  name: string;
+  organizer: string | null;
+  created_at: string;
 }
 
 export interface RaceRow {
@@ -62,4 +96,4 @@ export interface ResultRow {
 
 export type RaceWithResults = RaceRow & { results: ResultRow[] };
 export type ClassFull = ClassRow & { entries: EntryRow[]; races: RaceWithResults[] };
-export type EventFull = EventRow & { classes: ClassFull[] };
+export type EventFull = EventRow & { classes: ClassFull[]; notices?: NoticeRow[]; protests?: ProtestRow[] };

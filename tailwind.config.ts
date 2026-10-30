@@ -11,7 +11,7 @@ export default {
         sea: { DEFAULT: "#1F7F96", 600: "#186A7D", 50: "#E8F5F8" },
         flag: "#D7263D",
         night: { DEFAULT: "#2A2F35", 2: "#353B42" },
-        sky: { DEFAULT: "#7FC7D6", 600: "#4FA9BD" },
+        sky: { DEFAULT: "#7FC7D6", 50: "#EEF8FA", 100: "#DDF1F5", 600: "#4FA9BD" },
       },
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],

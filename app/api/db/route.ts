@@ -7,7 +7,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 
-const TABLES = new Set(["events", "classes", "entries", "races", "results"]);
+const TABLES = new Set(["events", "classes", "entries", "races", "results", "notices", "protests", "circuits", "circuit_events"]);
 const METHODS = new Set([
   "select", "insert", "update", "upsert", "delete",
   "eq", "neq", "in", "order", "limit", "single", "maybeSingle",
@@ -37,14 +37,14 @@ export async function POST(req: Request) {
       if (!METHODS.has(op.m)) throw new Error(`Método não permitido: ${op.m}`);
       let args = op.a ?? [];
       // carimba quem criou o evento
-      if (table === "events" && op.m === "insert") {
+      if ((table === "events" || table === "circuits") && op.m === "insert") {
         const rows = args[0];
         const stamp = (r: Record<string, unknown>) => ({ ...r, organizer: user });
         args = [Array.isArray(rows) ? rows.map(stamp) : stamp(rows as Record<string, unknown>), ...args.slice(1)];
       }
       q = q[op.m](...args);
       // organizador comum só enxerga os próprios eventos na lista do painel
-      if (!master && table === "events" && op.m === "select" && !ops.some((o) => WRITES.has(o.m))) {
+      if (!master && (table === "events" || table === "circuits") && op.m === "select" && !ops.some((o) => WRITES.has(o.m))) {
         q = q.ilike("organizer", user);
       }
     }
