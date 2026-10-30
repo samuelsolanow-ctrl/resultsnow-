@@ -1,4 +1,5 @@
 import Link from "next/link";
+import EventCover from "./EventCover";
 import { formatDates, isPast, standingsFor } from "@/lib/data";
 import type { EventFull } from "@/lib/types";
 
@@ -10,19 +11,7 @@ export default function EventCard({ ev }: { ev: EventFull }) {
 
   return (
     <Link href={`/eventos/${ev.slug}`} className="card group flex flex-col overflow-hidden transition-shadow hover:shadow-md">
-      <div className={`relative aspect-[16/7] ${ev.cover_url ? "" : "cover-default"}`}>
-        {ev.cover_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={ev.cover_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
-        ) : null}
-        <span
-          className={`absolute left-3 top-3 rounded px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${
-            past ? "bg-white/90 text-ink-2" : "bg-flag text-white"
-          }`}
-        >
-          {past ? "Encerrado" : "Ao vivo"}
-        </span>
-      </div>
+      <EventCover url={ev.cover_url} name={ev.name} rounded={false} showName={false} badge={{ label: past ? "Encerrado" : "Ao vivo", live: !past }} />
       <div className="flex flex-1 flex-col p-4">
         <h3 className="font-display text-xl font-bold leading-tight group-hover:text-sea">{ev.name}</h3>
         <p className="mt-1 text-sm text-ink-3">

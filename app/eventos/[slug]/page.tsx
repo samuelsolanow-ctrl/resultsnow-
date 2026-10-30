@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import BackLink from "@/components/BackLink";
+import EventCover from "@/components/EventCover";
 import EventResults, { type ClassView } from "@/components/EventResults";
 import ShareEvent from "@/components/ShareEvent";
 import { formatDates, getEventBySlug, isPast, standingsFor } from "@/lib/data";
@@ -51,21 +52,19 @@ export default async function EventPage({ params }: Props) {
 
   return (
     <div>
-      <div className={`relative h-44 sm:h-60 lg:h-72 ${ev.cover_url ? "bg-night" : "cover-default"}`}>
-        {ev.cover_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={ev.cover_url} alt="" fetchPriority="high" className="absolute inset-0 h-full w-full object-cover opacity-90" />
-        ) : null}
-        <div className="absolute inset-0 bg-gradient-to-t from-night/90 via-night/25 to-transparent" />
-        <div className="wrap absolute inset-x-0 top-0 pt-3">
+      <div className="bg-night">
+        <div className="wrap max-w-4xl pb-6 pt-3 sm:pt-5">
           <BackLink href="/">Eventos</BackLink>
-        </div>
-        <div className="wrap absolute inset-x-0 bottom-0 pb-5 text-white">
-          <span className="text-[11px] font-bold uppercase tracking-widest text-white/75">
-            {isPast(ev) ? "Resultado final" : "Resultados ao vivo"}
-          </span>
-          <h1 className="font-display text-3xl font-bold leading-tight sm:text-5xl">{ev.name}</h1>
-          {subtitle ? <p className="mt-1 text-sm text-white/80">{subtitle}</p> : null}
+          <div className="mt-3">
+            <EventCover
+              url={ev.cover_url}
+              name={ev.name}
+              priority
+              badge={{ label: isPast(ev) ? "Resultado final" : "Ao vivo", live: !isPast(ev) }}
+            />
+          </div>
+          <h1 className="mt-4 font-display text-3xl font-bold leading-tight text-white sm:text-4xl">{ev.name}</h1>
+          {subtitle ? <p className="mt-1 text-sm text-white/70">{subtitle}</p> : null}
         </div>
       </div>
 

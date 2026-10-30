@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import BackLink from "@/components/BackLink";
+import EventCover from "@/components/EventCover";
 import Flags from "@/components/Flags";
 import RegistrationForm from "@/components/RegistrationForm";
 import { formatDates } from "@/lib/data";
@@ -29,23 +30,18 @@ export default async function RegistrationPage({ params }: Props) {
 
   return (
     <div>
-      <div className={`relative h-36 sm:h-48 ${ev.cover_url ? "bg-night" : "cover-default"}`}>
-        {ev.cover_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={ev.cover_url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-90" />
-        ) : null}
-        <div className="absolute inset-0 bg-gradient-to-t from-night/90 via-night/25 to-transparent" />
-        <div className="wrap absolute inset-x-0 bottom-0 max-w-2xl pb-4 text-white">
-          <span className="text-[11px] font-bold uppercase tracking-widest text-sky">Inscrição</span>
-          <h1 className="font-display text-3xl font-bold leading-tight sm:text-4xl">{ev.name}</h1>
-          {sub ? <p className="text-sm text-white/80">{sub}</p> : null}
+      <div className="bg-night">
+        <div className="wrap max-w-2xl pb-5 pt-3 sm:pt-5">
+          <BackLink href={`/eventos/${ev.slug}`}>Evento</BackLink>
+          <div className="mt-3">
+            <EventCover url={ev.cover_url} name={ev.name} priority badge={{ label: "Inscrições" }} />
+          </div>
+          <h1 className="mt-4 font-display text-3xl font-bold leading-tight text-white">{ev.name}</h1>
+          {sub ? <p className="text-sm text-white/70">{sub}</p> : null}
         </div>
       </div>
 
       <div className="wrap max-w-2xl py-5 sm:py-8">
-        <div className="mb-4">
-          <BackLink href={`/eventos/${ev.slug}`}>Evento</BackLink>
-        </div>
         {ev.registration_open && ev.classes.length ? (
           <RegistrationForm slug={ev.slug} classes={ev.classes.map((c) => ({ id: c.id, name: c.name, crew: c.crew_size }))} />
         ) : (

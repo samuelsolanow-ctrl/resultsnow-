@@ -203,7 +203,7 @@ function EventForm({ ev, onSaved }: { ev: EventRow; onSaved: () => void }) {
   return (
     <div className="space-y-5">
       <div className="card overflow-hidden">
-        <div className={`relative aspect-[16/6] ${f.cover_url ? "bg-ink" : "cover-default"}`}>
+        <div className={`relative aspect-video ${f.cover_url ? "bg-ink" : "cover-default"}`}>
           {f.cover_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={f.cover_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
@@ -211,7 +211,8 @@ function EventForm({ ev, onSaved }: { ev: EventRow; onSaved: () => void }) {
             <span className="absolute inset-0 grid place-items-center text-sm font-semibold text-white/70">Capa padrão</span>
           )}
         </div>
-        <div className="flex flex-wrap gap-2 p-3">
+        <div className="flex flex-wrap items-center gap-2 p-3">
+          <p className="w-full text-xs text-ink-3">Formato 16:9, igual miniatura do YouTube (ex.: 1280 × 720 px).</p>
           <label className="btn-ghost cursor-pointer">
             {uploading ? "Enviando…" : f.cover_url ? "Trocar capa" : "Enviar capa"}
             <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
