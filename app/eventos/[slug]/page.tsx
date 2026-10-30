@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import BackLink from "@/components/BackLink";
 import EventCover from "@/components/EventCover";
+import OrganizerBar from "@/components/OrganizerBar";
 import EventResults, { type ClassView } from "@/components/EventResults";
 import ShareEvent from "@/components/ShareEvent";
 import { formatDates, getEventBySlug, isPast, standingsFor } from "@/lib/data";
@@ -52,6 +53,7 @@ export default async function EventPage({ params }: Props) {
 
   return (
     <div>
+      <OrganizerBar eventId={ev.id} organizer={ev.organizer} />
       <div className="bg-night">
         <div className="wrap max-w-4xl pb-6 pt-3 sm:pt-5">
           <BackLink href="/">Eventos</BackLink>

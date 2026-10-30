@@ -46,6 +46,11 @@ function EventAdmin() {
   const [ev, setEv] = useState<EventRow | null>(null);
   const [classes, setClasses] = useState<ClassRow[]>([]);
   const [tab, setTab] = useState<Tab>("evento");
+  // abre direto na aba pedida (?aba=regatas, vindo da página pública)
+  useEffect(() => {
+    const a = new URLSearchParams(window.location.search).get("aba");
+    if (a && ["evento", "classes", "inscritos", "regatas", "avisos"].includes(a)) setTab(a as Tab);
+  }, []);
   const [classId, setClassId] = useState<string>("");
 
   const loadEvent = useCallback(async () => {
