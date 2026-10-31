@@ -6,6 +6,23 @@
   color-scheme: light;
 }
 
+html,
+body {
+  /* nada pode deixar a página mais larga que a tela */
+  overflow-x: clip;
+  max-width: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* iPhone: campo com letra menor que 16px faz a tela dar zoom ao tocar */
+@media (max-width: 1023px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 body {
   @apply bg-paper text-ink antialiased;
   font-feature-settings: "tnum" 1;

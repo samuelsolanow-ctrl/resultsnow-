@@ -9,7 +9,7 @@ export default function ConditionsPanel({ value, onChange }: { value: RaceCondit
   const set = <K extends keyof RaceConditions>(k: K, v: RaceConditions[K]) => onChange({ ...value, [k]: v });
   const num = (v: string) => (v === "" ? undefined : Number(v.replace(",", ".")));
   const chip = (on: boolean) =>
-    `h-9 min-w-[44px] rounded-lg border px-2 text-sm font-semibold transition ${on ? "border-sea bg-sea text-white" : "border-line bg-white text-ink-2"}`;
+    `h-9 min-w-0 rounded-lg border px-2 text-sm font-semibold transition ${on ? "border-sea bg-sea text-white" : "border-line bg-white text-ink-2"}`;
 
   const timeField = (k: "start_time" | "first_finish" | "last_finish", label: string) => (
     <div>
@@ -47,7 +47,7 @@ export default function ConditionsPanel({ value, onChange }: { value: RaceCondit
         {/* vento */}
         <div>
           <label className="label">Direção do vento</label>
-          <div className="grid grid-cols-8 gap-1">
+          <div className="grid grid-cols-4 gap-1 sm:grid-cols-8">
             {WIND_DIRS.map((d) => (
               <button key={d} type="button" onClick={() => set("wind_dir", value.wind_dir === d ? undefined : d)} className={chip(value.wind_dir === d)}>
                 {d}
