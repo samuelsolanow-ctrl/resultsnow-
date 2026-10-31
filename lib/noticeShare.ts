@@ -10,18 +10,19 @@ export function noticeWhen(iso: string): string {
   return `${day} às ${time}`;
 }
 
-/** Assinatura: "Publicado em 31/10 às 10:17 por Samuel" */
-export function noticeSignature(n: NoticeRow): string {
-  return `Publicado em ${noticeWhen(n.created_at)} · Comissão de Regata${n.author ? ` · ${n.author}` : ""}`;
+/** Assinatura: "Publicado em 31/10 às 10:17 · Comissão de Regata · Samuel" (at = outro horário, ex.: o do envio) */
+export function noticeSignature(n: NoticeRow, at?: string): string {
+  return `Publicado em ${noticeWhen(at ?? n.created_at)} · Comissão de Regata${n.author ? ` · ${n.author}` : ""}`;
 }
 
 /**
  * Mensagem do aviso para o WhatsApp: bandeira L, título, texto e assinatura.
- * Sem links: o anexo (PDF, imagem) vai como arquivo junto.
+ * Horário = hora do envio. Sem links: o anexo (PDF, imagem) vai como arquivo junto.
  */
 export function noticeText(n: NoticeRow, eventName: string): string {
   const lines = ["🟨⬛", "⬛🟨  *AVISO AOS COMPETIDORES*", `_${eventName}_`, "", `*${n.title}*`];
   if (n.body) lines.push(n.body.length > 600 ? `${n.body.slice(0, 600)}…` : n.body);
-  lines.push("", `🕐 ${noticeSignature(n)}`);
+  // o quadro oficial é o grupo do WhatsApp: vale a hora do envio
+  lines.push("", `🕐 ${noticeSignature(n, new Date().toISOString())}`);
   return lines.join("\n");
 }
