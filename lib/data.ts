@@ -218,8 +218,8 @@ export const getCircuit = cache(async function getCircuit(slug: string): Promise
   return { id: c.id, name: c.name, slug: c.slug, stages, standings };
 });
 
-export async function listCircuits(): Promise<{ name: string; slug: string }[]> {
+export async function listCircuits(): Promise<{ id: string; name: string; slug: string; organizer: string | null }[]> {
   if (!isConfigured()) return [];
-  const { data, error } = await supabaseServer().from("circuits").select("name, slug").order("created_at", { ascending: false });
+  const { data, error } = await supabaseServer().from("circuits").select("id, name, slug, organizer").order("created_at", { ascending: false });
   return error ? [] : (data ?? []);
 }

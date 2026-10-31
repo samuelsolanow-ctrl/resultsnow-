@@ -1,4 +1,5 @@
 import EventCard from "@/components/EventCard";
+import RankingChip from "@/components/RankingChip";
 import Link from "next/link";
 import { isPast, listCircuits, listPublicEvents } from "@/lib/data";
 import { isConfigured } from "@/lib/supabase";
@@ -37,9 +38,7 @@ export default async function Home() {
           <h2 className="mb-4 font-display text-2xl font-bold">Rankings</h2>
           <div className="flex flex-wrap gap-2">
             {circuits.map((c) => (
-              <Link key={c.slug} href={`/rankings/${c.slug}`} className="card flex items-center gap-2 px-4 py-3 font-semibold hover:border-ink-3">
-                <span className="text-sea">🏆</span> {c.name}
-              </Link>
+              <RankingChip key={c.slug} id={c.id} name={c.name} slug={c.slug} organizer={c.organizer} />
             ))}
           </div>
         </section>
