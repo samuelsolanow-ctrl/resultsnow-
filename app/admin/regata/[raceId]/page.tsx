@@ -12,6 +12,7 @@ import { db, uploadAttachment } from "@/lib/adminDb";
 import { dropAudio, pendingAudios, queueAudio } from "@/lib/idbQueue";
 import { CODE_LABELS, KEEP_PLACE_CODES, POINTS_CODES, computeStandings } from "@/lib/scoring";
 import { matchSpoken } from "@/lib/voiceMatch";
+import { sumulaFile } from "@/lib/pdf";
 import { sailDigits } from "@/lib/slug";
 import type { ClassRow, EntryRow, EventRow, RaceRow, ResultRow } from "@/lib/types";
 
@@ -1164,6 +1165,29 @@ function RaceEditor() {
           entries={entries}
           results={rowsNow}
           standings={standingsNow}
+          makePdf={() => {
+            const sailed = data.races
+              .filter((r) => r.number <= race.number)
+              .map((r) => (r.id === race.id ? { ...r, conditions: cond } : r));
+            const codes = [...new Set(standingsNow.flatMap((s) => s.cells.map((c) => c.code)).filter(Boolean) as string[])];
+            return sumulaFile(
+              {
+                eventName: ev.name,
+                subtitle: ev.venue ?? "",
+                className: cls.name,
+                info: `${entries.length} inscritos · ${sailed.length} regata${sailed.length === 1 ? "" : "s"}`,
+                flagMode: ev.flag_mode,
+                showClub: ev.show_club !== false,
+                showCbvela: ev.show_cbvela !== false,
+                crewSize: cls.crew_size,
+                races: sailed,
+                standings: standingsNow,
+                legend: codes.map((c) => `${c} ${CODE_LABELS[c] ?? ""}`),
+                updated: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }),
+              },
+              `Resultados_${cls.name}_R${race.number}.pdf`.replace(/\s+/g, "_")
+            );
+          }}
         />
       ) : null}
     </div>

@@ -20,7 +20,7 @@ export async function publishOfficialResult(o: {
   }
   const { data, error } = await db
     .from("notices")
-    .insert({ event_id: o.eventId, title: resultTitle(o.className, o.raceNumber), body: o.body, ...attach })
+    .insert({ event_id: o.eventId, title: resultTitle(o.className, o.raceNumber), body: o.body || null, ...attach })
     .select()
     .single();
   if (error || !data) return { error: error?.message ?? "Não foi possível publicar." };

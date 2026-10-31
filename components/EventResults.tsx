@@ -8,7 +8,7 @@ import { noticeSignature, noticeWhen } from "@/lib/noticeShare";
 import NoticeShareButton from "./NoticeShareButton";
 import OfficialResult from "./OfficialResult";
 import { useCanManage } from "@/lib/useCanManage";
-import { downloadSumula, type SumulaData } from "@/lib/pdf";
+import { downloadSumula, sumulaFile, type SumulaData } from "@/lib/pdf";
 import { CODE_LABELS, type Standing } from "@/lib/scoring";
 import { conditionsLine, hasConditions, type RaceConditions } from "@/lib/conditions";
 import type { FlagMode, NoticeRow, ProtestRow } from "@/lib/types";
@@ -239,8 +239,25 @@ export default function EventResults({
             eventName={eventName}
             className={cls.name}
             raceNumber={lastRace.number}
-            standings={cls.standings}
-            file={img?.raceId === lastRace.id ? img.file : null}
+            makePdf={() =>
+              sumulaFile(
+                {
+                  eventName,
+                  subtitle,
+                  className: cls.name,
+                  info: infoText(cls),
+                  flagMode,
+                  showClub,
+                  showCbvela,
+                  crewSize: cls.crewSize,
+                  races: cls.races,
+                  standings: cls.standings,
+                  legend: cls.usedCodes.map((c) => `${c} ${CODE_LABELS[c] ?? ""}`),
+                  updated: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }),
+                },
+                `Resultados_${cls.name}_R${lastRace.number}.pdf`.replace(/\s+/g, "_")
+              )
+            }
             notices={notices}
           />
         ) : null}

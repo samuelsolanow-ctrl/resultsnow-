@@ -33,7 +33,7 @@ async function loadImage(src: string): Promise<string | null> {
   }
 }
 
-export async function downloadSumula(d: SumulaData) {
+async function buildSumula(d: SumulaData) {
   const [{ jsPDF }, autoTableMod] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
   const autoTable = autoTableMod.default;
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
@@ -173,6 +173,17 @@ export async function downloadSumula(d: SumulaData) {
     });
   }
 
-  const file = `Sumula_${d.eventName}_${d.className}`.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w-]+/g, "_");
-  doc.save(`${file}.pdf`);
+  const file = `Sumula_${d.eventName}_${d.className}`.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w-]+/g, "_").slice(0, 90);
+  return { doc, name: `${file}.pdf` };
+}
+
+export async function downloadSumula(d: SumulaData) {
+  const { doc, name } = await buildSumula(d);
+  doc.save(name);
+}
+
+/** A súmula como arquivo (para anexar no aviso oficial e mandar no WhatsApp) */
+export async function sumulaFile(d: SumulaData, name?: string): Promise<File> {
+  const { doc, name: n } = await buildSumula(d);
+  return new File([doc.output("blob")], name ?? n, { type: "application/pdf" });
 }

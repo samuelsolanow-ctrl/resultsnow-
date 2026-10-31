@@ -22,6 +22,7 @@ export default function RaceShare(props: {
   entries: EntryRow[];
   results: ResultRow[];
   standings: Standing[];
+  makePdf: () => Promise<File>;
 }) {
   const url = eventUrl(props.eventSlug);
   const text = raceShareText({
@@ -41,21 +42,22 @@ export default function RaceShare(props: {
   const [copied, setCopied] = useState(false);
   const [official, setOfficial] = useState<NoticeRow | null>(null);
   const [posting, setPosting] = useState(false);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [postErr, setPostErr] = useState<string | null>(null);
 
   /** publica o resultado no quadro de avisos, com bandeira L, horário e assinatura */
   async function publishOfficial() {
     setPosting(true);
     setPostErr(null);
-    const img = files.geral ?? (await fetch(`/api/card/${props.raceId}?modo=geral&v=${stamp}`).then((r) => (r.ok ? r.blob() : null)).then((b) => (b ? new File([b], `${props.className}-Geral-R${props.raceNumber}.png`.replace(/\s+/g, "_"), { type: "image/png" }) : null)).catch(() => null));
-    const body = text
-      .split("\n")
-      .slice(1) // tira o nome do evento (já vai no cabeçalho do aviso)
-      .filter((l) => !l.startsWith("Resultados completos"))
-      .join("\n")
-      .replace(/\*/g, "")
-      .trim();
-    const r = await publishOfficialResult({ eventId: props.eventId, className: props.className, raceNumber: props.raceNumber, body, file: img });
+    let pdf: File;
+    try {
+      pdf = await props.makePdf();
+    } catch {
+      setPosting(false);
+      return setPostErr("Não foi possível gerar o PDF.");
+    }
+    const r = await publishOfficialResult({ eventId: props.eventId, className: props.className, raceNumber: props.raceNumber, body: "", file: pdf });
+    setPdfFile(pdf);
     setPosting(false);
     if (r.error || !r.notice) return setPostErr(r.error ?? "Não foi possível publicar.");
     setOfficial(r.notice);
@@ -131,7 +133,7 @@ export default function RaceShare(props: {
                 <LimaFlag size={24} /> {posting ? "Publicando…" : "Publicar oficialmente"}
               </button>
               <p className="mt-1.5 text-center text-xs text-amber-900">
-                Vai para o quadro de avisos com bandeira L, horário e sua assinatura.
+                Vai para o quadro de avisos com a súmula em PDF, bandeira L, horário e assinatura.
               </p>
               {postErr ? <p className="mt-1 text-center text-xs text-flag">{postErr}</p> : null}
             </>
@@ -145,7 +147,7 @@ export default function RaceShare(props: {
                 <NoticeShareButton
                   notice={official}
                   eventName={props.eventName}
-                  file={files.geral ?? null}
+                  file={pdfFile}
                   official
                   className="btn h-11 w-full bg-night text-white"
                 />

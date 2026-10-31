@@ -2,52 +2,54 @@
 
 import { useState } from "react";
 import { publishOfficialResult, resultTitle } from "@/lib/officialResult";
-import type { Standing } from "@/lib/scoring";
 import type { NoticeRow } from "@/lib/types";
 import LimaFlag from "./LimaFlag";
 import NoticeShareButton from "./NoticeShareButton";
 
-const medal = (r: number) => (r === 1 ? "🥇" : r === 2 ? "🥈" : r === 3 ? "🥉" : `${r}º`);
-
-/** Só organizador: publica o resultado (geral após a última regata) como aviso oficial e envia no WhatsApp */
+/** Só organizador: publica o resultado (súmula em PDF) como aviso oficial e envia no WhatsApp */
 export default function OfficialResult({
   eventId,
   eventName,
   className,
   raceNumber,
-  standings,
-  file,
+  makePdf,
   notices,
 }: {
   eventId: string;
   eventName: string;
   className: string;
   raceNumber: number;
-  standings: Standing[];
-  file: File | null;
+  makePdf: () => Promise<File>;
   notices: NoticeRow[];
 }) {
   const title = resultTitle(className, raceNumber);
   const [posted, setPosted] = useState<NoticeRow | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const existing = posted ?? notices.find((n) => n.title === title) ?? null;
 
   async function publish() {
     setBusy(true);
     setErr(null);
-    const lines = [`Geral após R${raceNumber}`, ...standings.slice(0, 10).map((s) => `${medal(s.rank)} ${s.entry.helm_name} · ${s.net} pts`)];
-    if (standings.length > 10) lines.push(`… +${standings.length - 10} barcos`);
-    const r = await publishOfficialResult({ eventId, className, raceNumber, body: lines.join("\n"), file });
+    let pdf: File | null = null;
+    try {
+      pdf = await makePdf();
+    } catch {
+      setBusy(false);
+      return setErr("Não foi possível gerar o PDF.");
+    }
+    const r = await publishOfficialResult({ eventId, className, raceNumber, body: "", file: pdf });
     setBusy(false);
     if (r.error) return setErr(r.error);
+    setFile(pdf);
     setPosted(r.notice!);
   }
 
   if (existing) {
     return (
       <span className="inline-flex flex-col">
-        <NoticeShareButton notice={existing} eventName={eventName} file={file} official label={`Enviar resultado R${raceNumber}`} />
+        <NoticeShareButton notice={existing} eventName={eventName} file={posted ? file : null} official label={`Enviar resultado R${raceNumber}`} />
       </span>
     );
   }
