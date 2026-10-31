@@ -13,12 +13,14 @@ export default function ShareEvent({
   compact,
   path,
   registration,
+  pill,
 }: {
   name: string;
   slug: string;
   compact?: boolean;
   path?: string;
   registration?: boolean;
+  pill?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [what, setWhat] = useState<"res" | "insc">("res");
@@ -60,12 +62,16 @@ export default function ShareEvent({
     <>
       <button
         onClick={() => setOpen(true)}
-        className={`btn bg-[#25D366] font-bold text-white hover:bg-[#1ebe5a] ${compact ? "" : "h-12 w-full text-base sm:w-auto sm:px-8"}`}
+        className={
+          pill
+            ? "inline-flex h-9 items-center gap-1.5 rounded-full bg-[#25D366] px-4 text-sm font-bold text-white hover:bg-[#1ebe5a]"
+            : `btn bg-[#25D366] font-bold text-white hover:bg-[#1ebe5a] ${compact ? "" : "h-12 w-full text-base sm:w-auto sm:px-8"}`
+        }
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <svg width={pill ? 15 : 18} height={pill ? 15 : 18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13" />
         </svg>
-        {compact ? "Compartilhar link" : "Compartilhar resultados"}
+        {pill ? "Compartilhar" : compact ? "Compartilhar link" : "Compartilhar resultados"}
       </button>
 
       {open ? (

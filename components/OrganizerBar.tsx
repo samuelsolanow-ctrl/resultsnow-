@@ -37,10 +37,10 @@ export default function OrganizerBar({ eventId, organizer, helpers = [] }: { eve
     return (
       <button
         onClick={() => setPublicMode(false)}
-        className="fixed bottom-4 left-1/2 z-30 -translate-x-1/2 rounded-full bg-night px-4 py-2.5 text-sm font-semibold text-white shadow-lg"
+        className="fixed bottom-3 right-3 z-30 rounded-full bg-night/90 px-3 py-1.5 text-xs font-semibold text-white shadow-lg"
         style={{ marginBottom: "env(safe-area-inset-bottom)" }}
       >
-        👁 Vendo como público · <u>voltar</u>
+        👁 Público · <u>voltar</u>
       </button>
     );
   }

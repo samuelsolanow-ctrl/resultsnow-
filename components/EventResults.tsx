@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import ResultsTable from "./ResultsTable";
+import ShareEvent from "./ShareEvent";
 import { downloadSumula, type SumulaData } from "@/lib/pdf";
 import { CODE_LABELS, type Standing } from "@/lib/scoring";
 import { conditionsLine, hasConditions, type RaceConditions } from "@/lib/conditions";
@@ -41,6 +42,8 @@ export default function EventResults({
   protests = [],
   showClub = true,
   showCbvela = true,
+  slug,
+  registration,
 }: {
   eventName: string;
   subtitle: string;
@@ -51,6 +54,8 @@ export default function EventResults({
   protests?: ProtestRow[];
   showClub?: boolean;
   showCbvela?: boolean;
+  slug?: string;
+  registration?: boolean;
 }) {
   const [tab, setTab] = useState<"res" | "avisos" | "protestos">("res");
   const [activeId, setActiveId] = useState(classes[0]?.id);
@@ -58,6 +63,8 @@ export default function EventResults({
   const [followed, setFollowed] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [img, setImg] = useState<{ raceId: string; file: File } | null>(null);
+  const [imgBusy, setImgBusy] = useState(false);
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
@@ -112,6 +119,48 @@ export default function EventResults({
     ...(protests.length ? [{ k: "protestos" as const, label: `Protestos ${protests.length}` }] : []),
   ];
 
+  // imagem da classificação geral após a última regata (baixada antes: o iPhone exige o arquivo pronto no toque)
+  const lastRace = cls?.races.length ? [...cls.races].sort((a, b) => b.number - a.number)[0] : null;
+  useEffect(() => {
+    if (!lastRace || img?.raceId === lastRace.id) return;
+    let alive = true;
+    const t = setTimeout(() => {
+      fetch(`/api/card/${lastRace.id}?modo=geral`)
+        .then((r) => (r.ok ? r.blob() : null))
+        .then((b) => {
+          if (alive && b && cls)
+            setImg({ raceId: lastRace.id, file: new File([b], `${cls.name}-Geral-R${lastRace.number}.png`.replace(/\s+/g, "_"), { type: "image/png" }) });
+        })
+        .catch(() => null);
+    }, 800);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastRace?.id]);
+
+  async function shareImage() {
+    if (!lastRace || !cls) return;
+    const file = img?.raceId === lastRace.id ? img.file : null;
+    const url = slug ? `${window.location.origin}/e/${slug}` : window.location.href;
+    if (file && navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], text: `${eventName} · ${cls.name}\n${url}` });
+      } catch {
+        /* cancelado */
+      }
+      return;
+    }
+    // computador (ou imagem ainda carregando): baixa
+    setImgBusy(true);
+    const a = document.createElement("a");
+    a.href = file ? URL.createObjectURL(file) : `/api/card/${lastRace.id}?modo=geral`;
+    a.download = file?.name ?? "resultado.png";
+    a.click();
+    setTimeout(() => setImgBusy(false), 800);
+  }
+
   async function pdf() {
     if (!cls) return;
     setBusy(true);
@@ -141,6 +190,32 @@ export default function EventResults({
 
   return (
     <>
+      {/* ações: pequenas, mas sempre à vista */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {slug ? <ShareEvent name={eventName} slug={slug} registration={registration} pill /> : null}
+        {lastRace ? (
+          <button onClick={shareImage} disabled={imgBusy} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-white px-3.5 text-sm font-semibold text-ink-2 hover:border-ink-3 disabled:opacity-50">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="9" cy="9" r="2" />
+              <path d="m21 15-5-5L5 21" />
+            </svg>
+            Imagem
+          </button>
+        ) : null}
+        {cls ? (
+          <button onClick={pdf} disabled={busy || !cls.entries} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-white px-3.5 text-sm font-semibold text-ink-2 hover:border-ink-3 disabled:opacity-50">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+              <path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v3h16v-3" />
+            </svg>
+            {busy ? "Gerando…" : "PDF"}
+          </button>
+        ) : null}
+        {registration && slug ? (
+          <a href={`/eventos/${slug}/inscricao`} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-white px-3.5 text-sm font-semibold text-ink-2 hover:border-ink-3 disabled:opacity-50 border-sea text-sea">Inscrever-se</a>
+        ) : null}
+      </div>
+
       {tabs.length > 1 ? (
         <div className="mb-4 flex gap-1 border-b border-line">
           {tabs.map((t) => (
@@ -189,12 +264,6 @@ export default function EventResults({
                 </h2>
                 <p className="text-sm text-ink-3">{infoText(cls)}</p>
               </div>
-              <button onClick={pdf} disabled={busy || !cls.entries} className="btn-ghost">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                  <path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v3h16v-3" />
-                </svg>
-                {busy ? "Gerando…" : "Súmula PDF"}
-              </button>
             </div>
 
             {divisions.length ? (

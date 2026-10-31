@@ -1,11 +1,8 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import BackLink from "@/components/BackLink";
 import EventCover from "@/components/EventCover";
 import OrganizerBar from "@/components/OrganizerBar";
 import EventResults, { type ClassView } from "@/components/EventResults";
-import ShareEvent from "@/components/ShareEvent";
 import { formatDates, getEventBySlug, isPast, standingsFor } from "@/lib/data";
 import { discardsFor } from "@/lib/scoring";
 
@@ -55,30 +52,21 @@ export default async function EventPage({ params }: Props) {
     <div>
       <OrganizerBar eventId={ev.id} organizer={ev.organizer} helpers={ev.helpers ?? []} />
       <div className="bg-night">
-        <div className="wrap max-w-4xl pb-6 pt-3 sm:pt-5">
-          <BackLink href="/">Eventos</BackLink>
-          <div className="mt-3">
-            <EventCover
-              url={ev.cover_url}
-              name={ev.name}
-              priority
-              badge={{ label: isPast(ev) ? "Resultado final" : "Ao vivo", live: !isPast(ev) }}
-            />
+        <div className="mx-auto max-w-4xl sm:px-6 sm:pt-5">
+          <EventCover url={ev.cover_url} name={ev.name} priority rounded={false} />
+          <div className="px-4 pb-4 pt-3 sm:px-0">
+            <h1 className="text-[17px] font-bold leading-snug text-white sm:text-2xl">{ev.name}</h1>
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-white/60 sm:text-sm">
+              <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${isPast(ev) ? "bg-white/15 text-white" : "bg-flag text-white"}`}>
+                {isPast(ev) ? "Resultado final" : "● Ao vivo"}
+              </span>
+              {subtitle}
+            </p>
           </div>
-          <h1 className="mt-4 font-display text-3xl font-bold leading-tight text-white sm:text-4xl">{ev.name}</h1>
-          {subtitle ? <p className="mt-1 text-sm text-white/70">{subtitle}</p> : null}
         </div>
       </div>
 
-      <div className="wrap py-5 sm:py-8">
-        <div className="mb-5 flex flex-wrap items-center gap-2">
-          <ShareEvent name={ev.name} slug={ev.slug} registration={!!ev.registration_open} />
-          {ev.registration_open ? (
-            <Link href={`/eventos/${ev.slug}/inscricao`} className="btn-primary">
-              Inscrever-se
-            </Link>
-          ) : null}
-        </div>
+      <div className="wrap max-w-4xl py-4 sm:py-6">
         <EventResults
           eventName={ev.name}
           subtitle={subtitle}
@@ -89,6 +77,8 @@ export default async function EventPage({ params }: Props) {
           showClub={ev.show_club !== false}
           showCbvela={ev.show_cbvela !== false}
           protests={ev.protests}
+          slug={ev.slug}
+          registration={!!ev.registration_open}
         />
       </div>
     </div>
