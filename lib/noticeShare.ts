@@ -12,7 +12,7 @@ export function noticeWhen(iso: string): string {
 
 /** Assinatura: "Publicado em 31/10 às 10:17 por Samuel" */
 export function noticeSignature(n: NoticeRow): string {
-  return `Publicado em ${noticeWhen(n.created_at)}${n.author ? ` por ${n.author}` : ""}`;
+  return `Publicado em ${noticeWhen(n.created_at)} · Comissão de Regata${n.author ? ` · ${n.author}` : ""}`;
 }
 
 /** Mensagem do aviso para o WhatsApp, com a bandeira Lima (L) desenhada */
