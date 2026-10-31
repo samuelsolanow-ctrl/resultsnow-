@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import ResultsTable from "./ResultsTable";
-import ShareEvent from "./ShareEvent";
 import LimaFlag from "./LimaFlag";
-import { isResultNotice, noticeSignature, noticeWhen } from "@/lib/noticeShare";
+import { isResultNotice, noticeWhen } from "@/lib/noticeShare";
 import NoticeShareButton from "./NoticeShareButton";
 import OfficialResult from "./OfficialResult";
 import { useCanManage } from "@/lib/useCanManage";
@@ -134,8 +133,8 @@ export default function EventResults({
 
   const tabs = [
     { k: "res" as const, label: "Resultados" },
-    ...(notices.length ? [{ k: "avisos" as const, label: `Avisos ${notices.length}` }] : []),
-    ...(protests.length ? [{ k: "protestos" as const, label: `Protestos ${protests.length}` }] : []),
+    ...(notices.length ? [{ k: "avisos" as const, label: "Avisos" }] : []),
+    ...(protests.length ? [{ k: "protestos" as const, label: "Protestos" }] : []),
   ];
 
   // imagem da classificação geral após a última regata (baixada antes: o iPhone exige o arquivo pronto no toque)
@@ -209,30 +208,8 @@ export default function EventResults({
 
   return (
     <>
-      {/* aviso novo (últimas 24 h): bandeira L em destaque */}
-      {showLatest && tab !== "avisos" ? (
-        <button
-          onClick={() => {
-            setTab("avisos");
-            setParam("aba", "avisos");
-          }}
-          className="mb-3 flex w-full items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-left"
-        >
-          <LimaFlag size={30} />
-          <span className="min-w-0 flex-1">
-            <span className="block text-[11px] font-bold uppercase tracking-wide text-amber-800">
-              Aviso aos competidores · {noticeWhen(showLatest.created_at)}
-            </span>
-            <span className="block truncate text-sm font-semibold text-ink">{showLatest.title}</span>
-          </span>
-          <span className="text-lg text-amber-800">›</span>
-        </button>
-      ) : null}
-
-      {/* ações: pequenas, mas sempre à vista */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        {slug ? <ShareEvent name={eventName} slug={slug} registration={registration} pill /> : null}
-        {canManage && eventId && lastRace && cls && tab === "res" ? (
+      {/* organizador: publicar o resultado oficial (o público não vê) */}
+      {canManage && eventId && lastRace && cls && tab === "res" ? (
           <OfficialResult
             key={`${cls.id}-${lastRace.id}`}
             eventId={eventId}
@@ -260,32 +237,9 @@ export default function EventResults({
             }
             notices={notices}
           />
-        ) : null}
-        {lastRace ? (
-          <button onClick={shareImage} disabled={imgBusy} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-white px-3.5 text-sm font-semibold text-ink-2 hover:border-ink-3 disabled:opacity-50">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <circle cx="9" cy="9" r="2" />
-              <path d="m21 15-5-5L5 21" />
-            </svg>
-            Imagem
-          </button>
-        ) : null}
-        {cls ? (
-          <button onClick={pdf} disabled={busy || !cls.entries} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-white px-3.5 text-sm font-semibold text-ink-2 hover:border-ink-3 disabled:opacity-50">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
-              <path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v3h16v-3" />
-            </svg>
-            {busy ? "Gerando…" : "PDF"}
-          </button>
-        ) : null}
-        {registration && slug ? (
-          <a href={`/eventos/${slug}/inscricao`} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-white px-3.5 text-sm font-semibold text-ink-2 hover:border-ink-3 disabled:opacity-50 border-sea text-sea">Inscrever-se</a>
-        ) : null}
-      </div>
-
+      ) : null}
       {tabs.length > 1 ? (
-        <div className="mb-4 flex gap-1 border-b border-line">
+        <div className="mb-4 flex rounded-xl bg-line/60 p-1">
           {tabs.map((t) => (
             <button
               key={t.k}
@@ -293,9 +247,10 @@ export default function EventResults({
                 setTab(t.k);
                 setParam("aba", t.k === "res" ? null : t.k);
               }}
-              className={`-mb-px border-b-2 px-3 py-2 text-sm font-semibold ${tab === t.k ? "border-sea text-sea" : "border-transparent text-ink-3"}`}
+              className={`relative h-9 flex-1 rounded-lg text-sm font-semibold transition ${tab === t.k ? "bg-white text-ink shadow-sm" : "text-ink-3"}`}
             >
               {t.label}
+              {t.k === "avisos" && showLatest && tab !== "avisos" ? <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-flag" aria-label="aviso novo" /> : null}
             </button>
           ))}
         </div>
@@ -324,13 +279,19 @@ export default function EventResults({
           ) : null}
 
           <section className="card overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4">
-              <div>
-                <h2 className="font-display text-2xl font-bold leading-tight">
+            <div className="flex items-end justify-between gap-3 px-4 pb-2 pt-3">
+              <div className="min-w-0">
+                <h2 className="font-display text-2xl font-bold leading-none">
                   {cls.name}
                   {division ? <span className="text-sea"> · {division}</span> : null}
                 </h2>
-                <p className="text-sm text-ink-3">{infoText(cls)}</p>
+                <p className="mt-1 text-xs text-ink-3">{infoText(cls)}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-3 text-sm font-semibold text-sea">
+                {lastRace ? (
+                  <button onClick={shareImage} disabled={imgBusy} className="disabled:opacity-50">🖼 Imagem</button>
+                ) : null}
+                <button onClick={pdf} disabled={busy || !cls.entries} className="disabled:opacity-50">{busy ? "Gerando…" : "⤓ PDF"}</button>
               </div>
             </div>
 
@@ -414,47 +375,59 @@ function infoText(cls: ClassView) {
 }
 
 function Notices({ notices, eventName, canShare }: { notices: NoticeRow[]; eventName: string; canShare: boolean }) {
+  const sign = (n: NoticeRow) => `${noticeWhen(n.created_at)} · Comissão de Regata${n.author ? ` · ${n.author}` : ""}`;
+  const ext = (n: NoticeRow) => (n.file_name?.split(".").pop() ?? "arq").slice(0, 4).toUpperCase();
   return (
-    <div className="space-y-3">
-      {notices.map((n) => (
-        <article key={n.id} id={`aviso-${n.id}`} className="card scroll-mt-20 p-4">
-          <div className="flex items-center gap-2">
-            <LimaFlag />
-            <p className="text-[11px] font-bold uppercase tracking-wide text-ink-3">Aviso aos competidores</p>
+    <div className="card divide-y divide-line overflow-hidden">
+      {notices.map((n) => {
+        const body = n.body && !isResultNotice(n) ? n.body : null;
+        const img = n.file_url && /\.(png|jpe?g|webp)$/i.test(n.file_url);
+        const row = (
+          <>
+            <LimaFlag size={24} />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[15px] font-semibold leading-tight">{n.title}</span>
+              <span className="block truncate text-xs text-ink-3">{sign(n)}</span>
+            </span>
+            {n.file_url ? <span className="shrink-0 rounded-md border border-sea/30 px-1.5 py-0.5 text-[10px] font-bold text-sea">{ext(n)}</span> : null}
+          </>
+        );
+        return (
+          <div key={n.id} id={`aviso-${n.id}`} className="scroll-mt-20">
+            {/* só PDF/arquivo, sem texto: um toque abre */}
+            {n.file_url && !body && !img ? (
+              <div className="flex items-center gap-3 px-4 py-3">
+                <a href={n.file_url} target="_blank" rel="noreferrer" className="flex min-w-0 flex-1 items-center gap-3">
+                  {row}
+                  <span className="text-ink-3">›</span>
+                </a>
+                {canShare ? <NoticeShareButton notice={n} eventName={eventName} official label="Enviar" className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-night px-3 text-xs font-bold text-white" /> : null}
+              </div>
+            ) : (
+              <details className="group">
+                <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+                  {row}
+                  <span className="text-ink-3 transition group-open:rotate-90">›</span>
+                </summary>
+                <div className="space-y-3 px-4 pb-4 pl-[52px]">
+                  {body ? <p className="whitespace-pre-line text-sm text-ink-2">{body}</p> : null}
+                  {img ? (
+                    <a href={n.file_url!} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border border-line">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={n.file_url!} alt={n.title} loading="lazy" className="w-full" />
+                    </a>
+                  ) : n.file_url ? (
+                    <a href={n.file_url} target="_blank" rel="noreferrer" className="inline-flex text-sm font-semibold text-sea">
+                      ⤓ {n.file_name ?? "Abrir anexo"}
+                    </a>
+                  ) : null}
+                  {canShare ? <NoticeShareButton notice={n} eventName={eventName} official /> : null}
+                </div>
+              </details>
+            )}
           </div>
-          <h3 className="mt-1.5 font-display text-xl font-bold leading-tight">{n.title}</h3>
-          {n.body && !isResultNotice(n) ? <p className="mt-1 whitespace-pre-line text-sm text-ink-2">{n.body}</p> : null}
-          {n.file_url && /\.(png|jpe?g|webp)$/i.test(n.file_url) ? (
-            <a href={n.file_url} target="_blank" rel="noreferrer" className="mt-3 block overflow-hidden rounded-lg border border-line">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={n.file_url} alt={n.title} loading="lazy" className="w-full" />
-            </a>
-          ) : n.file_url ? (
-            <a
-              href={n.file_url}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-3 flex items-center gap-3 rounded-lg border border-line bg-paper p-3 hover:border-sea"
-            >
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-sea text-xs font-bold text-white">
-                {(n.file_name?.split(".").pop() ?? "ARQ").slice(0, 4).toUpperCase()}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold">{n.file_name ?? "Anexo"}</span>
-                <span className="text-xs text-sea">Abrir / baixar</span>
-              </span>
-            </a>
-          ) : null}
-          {/* assinatura */}
-          <p className="mt-3 border-t border-line pt-2 text-xs italic text-ink-3">✍️ {noticeSignature(n)}</p>
-          {/* só o organizador manda o aviso oficial */}
-          {canShare ? (
-            <div className="mt-2">
-              <NoticeShareButton notice={n} eventName={eventName} official />
-            </div>
-          ) : null}
-        </article>
-      ))}
+        );
+      })}
     </div>
   );
 }

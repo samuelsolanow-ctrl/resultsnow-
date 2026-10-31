@@ -42,7 +42,7 @@ export default function ResultsTable({
     ...standings.map((s) => ({ s, pin: false })),
   ];
   const many = races.length > 8;
-  const th = "bg-night px-1 py-2 text-[10px] font-bold uppercase tracking-wide text-white whitespace-nowrap sm:px-2 sm:text-[11px]";
+  const th = "border-b border-line bg-white px-1 py-2 text-[10px] font-bold uppercase tracking-wide text-ink-3/80 whitespace-nowrap sm:px-2 sm:text-[11px]";
   const wide = "hidden lg:table-cell";
   const cellPad = "px-0.5 py-1.5 sm:px-2 sm:py-2";
   return (
@@ -69,16 +69,24 @@ export default function ResultsTable({
         <tbody>
           {rows.map(({ s, pin }, i) => {
             const star = followed.includes(s.entry.id);
-            const bg = pin ? "bg-sky-100" : star ? "bg-sky-50" : i % 2 ? "bg-paper" : "bg-white";
-            const td = `border-b border-line ${bg}`;
+            const bg = pin ? "bg-sky-100" : star ? "bg-sky-50" : "bg-white";
+            const td = `border-b border-line/70 ${bg}`;
             const e = s.entry;
             const dual = crewSize > 1 && e.crew_name;
             return (
               <tr key={`${pin ? "p" : "r"}-${e.id}`} className="align-middle">
                 <td className={`${td} sticky left-0 z-[1] w-8 px-0.5 py-1.5 text-center sm:w-10 sm:py-2`}>
-                  <span className={`num block font-display text-base font-bold leading-5 sm:text-lg sm:leading-6 ${s.rank <= 3 ? "text-sea" : ""}`}>
-                    {s.rank}
-                  </span>
+                  {s.rank <= 3 ? (
+                    <span
+                      className={`num mx-auto grid h-6 w-6 place-items-center rounded-full font-display text-sm font-bold text-white sm:h-7 sm:w-7 sm:text-base ${
+                        s.rank === 1 ? "bg-[#E9B949]" : s.rank === 2 ? "bg-[#A7B1BC]" : "bg-[#C8875A]"
+                      }`}
+                    >
+                      {s.rank}
+                    </span>
+                  ) : (
+                    <span className="num block font-display text-base font-bold leading-6 sm:text-lg">{s.rank}</span>
+                  )}
                   {onFollow ? (
                     <button
                       onClick={() => onFollow(e.id)}
@@ -131,7 +139,7 @@ export default function ResultsTable({
                   <td
                     key={c.raceId}
                     className={`${td} num whitespace-nowrap text-center ${cellPad} ${many ? "text-[10px] sm:text-sm" : "text-[11px] sm:text-sm"} ${
-                      c.discarded ? "text-ink-3" : c.code ? "font-semibold text-flag" : ""
+                      c.discarded ? "text-ink-3/50" : c.code ? "font-semibold text-flag" : ""
                     }`}
                   >
                     {/* celular: "4.2 SCP" vira "4.2" (vermelho) para caber */}

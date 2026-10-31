@@ -50,21 +50,29 @@ export default function OfficialResult({
 
   if (existing) {
     return (
-      <span className="inline-flex flex-col">
-        <NoticeShareButton notice={existing} eventName={eventName} file={posted ? file : null} official label={`Enviar resultado R${raceNumber}`} />
-      </span>
+      <div className="mb-4">
+        <NoticeShareButton
+          notice={existing}
+          eventName={eventName}
+          file={posted ? file : null}
+          official
+          label={`Enviar resultado R${raceNumber}`}
+          className="flex h-11 w-full items-center gap-2 rounded-xl bg-night px-3 text-sm font-bold text-white"
+        />
+      </div>
     );
   }
   return (
-    <span className="inline-flex flex-col items-start gap-1">
+    <div className="mb-4">
       <button
         onClick={publish}
         disabled={busy}
-        className="inline-flex h-9 items-center gap-2 rounded-full bg-night px-4 text-sm font-bold text-white disabled:opacity-60"
+        className="flex h-11 w-full items-center gap-2 rounded-xl bg-night px-3 text-sm font-bold text-white disabled:opacity-60"
       >
-        <LimaFlag size={20} /> {busy ? "Publicando…" : `Publicar resultado R${raceNumber}`}
+        <LimaFlag size={22} /> {busy ? "Publicando…" : `Publicar resultado R${raceNumber}`}
+        <span className="ml-auto text-[11px] font-normal text-white/50">só você vê</span>
       </button>
       {err ? <span className="text-[11px] text-flag">{err}</span> : null}
-    </span>
+    </div>
   );
 }

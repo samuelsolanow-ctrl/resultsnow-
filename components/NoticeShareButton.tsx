@@ -75,7 +75,7 @@ export default function NoticeShareButton({
   }
 
   return (
-    <span className="inline-flex flex-col items-start gap-1">
+    <span className={`${className?.includes("w-full") ? "flex" : "inline-flex"} flex-col items-start gap-1`}>
       <button onClick={share} className={cls}>
         {official ? <LimaFlag size={20} /> : <WhatsIcon />} {text}
         {official ? <WhatsIcon color="#25D366" /> : null}

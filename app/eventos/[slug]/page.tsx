@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import EventCover from "@/components/EventCover";
 import OrganizerBar from "@/components/OrganizerBar";
 import EventResults, { type ClassView } from "@/components/EventResults";
+import ShareEvent from "@/components/ShareEvent";
 import { formatDates, getEventBySlug, isPast, standingsFor } from "@/lib/data";
 import { discardsFor } from "@/lib/scoring";
 
@@ -51,17 +52,28 @@ export default async function EventPage({ params }: Props) {
   return (
     <div>
       <OrganizerBar eventId={ev.id} organizer={ev.organizer} helpers={ev.helpers ?? []} />
-      <div className="bg-night">
+      <div className="border-b border-line bg-white">
         <div className="mx-auto max-w-4xl sm:px-6 sm:pt-5">
           <EventCover url={ev.cover_url} name={ev.name} priority rounded={false} />
-          <div className="px-4 pb-4 pt-3 sm:px-0">
-            <h1 className="text-[17px] font-bold leading-snug text-white sm:text-2xl">{ev.name}</h1>
-            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-white/60 sm:text-sm">
-              <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${isPast(ev) ? "bg-white/15 text-white" : "bg-flag text-white"}`}>
-                {isPast(ev) ? "Resultado final" : "● Ao vivo"}
-              </span>
-              {subtitle}
-            </p>
+          <div className="flex items-start gap-3 px-4 py-3 sm:px-0 sm:py-4">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-[17px] font-bold leading-snug sm:text-2xl">{ev.name}</h1>
+              <p className="mt-1 text-xs text-ink-3 sm:text-sm">
+                {isPast(ev) ? (
+                  <span className="font-semibold text-ink-2">Resultado final</span>
+                ) : (
+                  <span className="font-bold text-flag">● ao vivo</span>
+                )}
+                {subtitle ? ` · ${subtitle}` : ""}
+                {ev.registration_open ? (
+                  <>
+                    {" · "}
+                    <a href={`/eventos/${ev.slug}/inscricao`} className="font-semibold text-sea underline">inscrever-se</a>
+                  </>
+                ) : null}
+              </p>
+            </div>
+            <ShareEvent name={ev.name} slug={ev.slug} registration={!!ev.registration_open} round />
           </div>
         </div>
       </div>
