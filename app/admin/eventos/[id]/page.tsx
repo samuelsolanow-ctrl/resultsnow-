@@ -700,6 +700,14 @@ function RacesTab({ cls }: { cls: ClassRow }) {
 
   const nextNumber = useMemo(() => (races.length ? Math.max(...races.map((r) => r.number)) + 1 : 1), [races]);
 
+  async function removeRace(r: RaceRow & { results: { count: number }[] }) {
+    const n = r.results?.[0]?.count ?? 0;
+    if (!confirm(`Apagar a regata ${r.number} de ${cls.name}?${n ? `\n\nOs ${n} resultados dela também serão apagados.` : ""}\nNão dá para desfazer.`)) return;
+    const { error } = await sb.from("races").delete().eq("id", r.id);
+    if (error) return setErr(error.message);
+    load();
+  }
+
   async function newRace() {
     const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
     const { data, error } = await sb
@@ -717,14 +725,26 @@ function RacesTab({ cls }: { cls: ClassRow }) {
       {err ? <p className="text-sm text-flag">{err}</p> : null}
       <div className="card divide-y divide-line">
         {races.map((r) => (
-          <Link key={r.id} href={`/admin/regata/${r.id}`} className="flex items-center gap-3 p-3 hover:bg-paper">
-            <span className="font-display text-xl font-bold">R{r.number}</span>
-            <span className="text-sm text-ink-3">
-              {r.sailed_on ? new Date(r.sailed_on + "T12:00:00").toLocaleDateString("pt-BR") : ""}
-            </span>
-            <span className="ml-auto text-sm text-ink-3">{r.results?.[0]?.count ?? 0} resultados</span>
-            <span className="text-sea">Editar →</span>
-          </Link>
+          <div key={r.id} className="flex items-center hover:bg-paper">
+            <Link href={`/admin/regata/${r.id}`} className="flex min-w-0 flex-1 items-center gap-3 p-3">
+              <span className="font-display text-xl font-bold">R{r.number}</span>
+              <span className="text-sm text-ink-3">
+                {r.sailed_on ? new Date(r.sailed_on + "T12:00:00").toLocaleDateString("pt-BR") : ""}
+              </span>
+              <span className="ml-auto text-sm text-ink-3">{r.results?.[0]?.count ?? 0} resultados</span>
+              <span className="text-sea">Editar →</span>
+            </Link>
+            <button
+              onClick={() => removeRace(r)}
+              aria-label={`Apagar regata ${r.number}`}
+              title="Apagar regata"
+              className="mr-1 grid h-9 w-9 shrink-0 place-items-center rounded-lg text-ink-3 hover:bg-red-50 hover:text-red-700"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
+              </svg>
+            </button>
+          </div>
         ))}
         {!races.length ? <p className="p-3 text-sm text-ink-3">Nenhuma regata lançada.</p> : null}
       </div>
