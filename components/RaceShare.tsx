@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Standing } from "@/lib/scoring";
-import { eventUrl, raceShareText, whatsappLink } from "@/lib/share";
+import { eventUrl } from "@/lib/share";
 import type { EntryRow, NoticeRow, ResultRow } from "@/lib/types";
-import { publishOfficialResult } from "@/lib/officialResult";
+import { publishOfficialResult, resultTitle } from "@/lib/officialResult";
+import { db } from "@/lib/adminDb";
 import { noticeSignature } from "@/lib/noticeShare";
 import NoticeShareButton from "./NoticeShareButton";
 import LimaFlag from "./LimaFlag";
@@ -25,21 +26,11 @@ export default function RaceShare(props: {
   makePdf: () => Promise<File>;
 }) {
   const url = eventUrl(props.eventSlug);
-  const text = raceShareText({
-    eventName: props.eventName,
-    className: props.className,
-    raceNumber: props.raceNumber,
-    entries: props.entries,
-    results: props.results,
-    standings: props.standings,
-    url,
-  });
   const [stamp] = useState(() => Date.now());
   const [mode, setMode] = useState<"geral" | "regata">("geral");
   const imgSrc = `/api/card/${props.raceId}?modo=${mode}&v=${stamp}`;
   const [files, setFiles] = useState<Record<string, File>>({});
   const file = files[mode] ?? null;
-  const [copied, setCopied] = useState(false);
   const [official, setOfficial] = useState<NoticeRow | null>(null);
   const [posting, setPosting] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -56,7 +47,16 @@ export default function RaceShare(props: {
       setPosting(false);
       return setPostErr("Não foi possível gerar o PDF.");
     }
-    const r = await publishOfficialResult({ eventId: props.eventId, className: props.className, raceNumber: props.raceNumber, body: "", file: pdf });
+    // já existe aviso deste resultado? substitui (assim não duplica e o texto antigo some)
+    const { data: prev } = await db
+      .from("notices")
+      .select("id")
+      .eq("event_id", props.eventId)
+      .eq("title", resultTitle(props.className, props.raceNumber))
+      .limit(1)
+      .maybeSingle();
+    const oldId = (prev as { id?: string } | null)?.id;
+    const r = await publishOfficialResult({ eventId: props.eventId, className: props.className, raceNumber: props.raceNumber, body: "", file: pdf, replaceId: oldId ?? undefined });
     setPdfFile(pdf);
     setPosting(false);
     if (r.error || !r.notice) return setPostErr(r.error ?? "Não foi possível publicar.");
@@ -100,11 +100,7 @@ export default function RaceShare(props: {
     a.click();
   }
 
-  async function copy() {
-    await navigator.clipboard.writeText(text).catch(() => null);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
+
 
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-night/60 backdrop-blur-sm sm:items-center" onClick={props.onClose}>
@@ -178,10 +174,6 @@ export default function RaceShare(props: {
           <button onClick={shareImage} className="btn h-12 bg-[#25D366] text-base text-white hover:bg-[#1ebe5a]">
             <WhatsIcon /> {canShareFile ? "Enviar imagem" : file ? "Baixar imagem" : "Preparando imagem…"}
           </button>
-          <a href={whatsappLink(text)} target="_blank" rel="noreferrer" className="btn-ghost h-12 text-base">
-            <WhatsIcon color="#25D366" /> Enviar em texto no WhatsApp
-          </a>
-          <button onClick={copy} className="btn-ghost">{copied ? "Copiado ✓" : "Copiar texto"}</button>
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-2 border-t border-line pt-4">

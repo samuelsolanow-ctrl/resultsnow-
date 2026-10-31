@@ -12,17 +12,18 @@ export async function publishOfficialResult(o: {
   raceNumber: number;
   body: string;
   file?: File | null;
+  /** aviso antigo do mesmo resultado (com texto/imagem): é substituído pelo PDF */
+  replaceId?: string;
 }): Promise<{ notice?: NoticeRow; error?: string }> {
   let attach: { file_url: string; file_name: string } | Record<string, never> = {};
   if (o.file) {
     const up = await uploadAttachment(o.file, o.eventId);
     if (up.url) attach = { file_url: up.url, file_name: o.file.name };
   }
-  const { data, error } = await db
-    .from("notices")
-    .insert({ event_id: o.eventId, title: resultTitle(o.className, o.raceNumber), body: o.body || null, ...attach })
-    .select()
-    .single();
+  const row = { event_id: o.eventId, title: resultTitle(o.className, o.raceNumber), body: o.body || null, ...attach };
+  const { data, error } = o.replaceId
+    ? await db.from("notices").update(row).eq("id", o.replaceId).select().single()
+    : await db.from("notices").insert(row).select().single();
   if (error || !data) return { error: error?.message ?? "Não foi possível publicar." };
   return { notice: data as NoticeRow };
 }

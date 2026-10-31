@@ -27,7 +27,9 @@ export default function OfficialResult({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
-  const existing = posted ?? notices.find((n) => n.title === title) ?? null;
+  const old = notices.find((n) => n.title === title) ?? null;
+  // só vale o que já tem o PDF; aviso antigo (texto/imagem) é refeito com o PDF
+  const existing = posted ?? (old && /\.pdf$/i.test(old.file_url ?? "") ? old : null);
 
   async function publish() {
     setBusy(true);
@@ -39,7 +41,7 @@ export default function OfficialResult({
       setBusy(false);
       return setErr("Não foi possível gerar o PDF.");
     }
-    const r = await publishOfficialResult({ eventId, className, raceNumber, body: "", file: pdf });
+    const r = await publishOfficialResult({ eventId, className, raceNumber, body: "", file: pdf, replaceId: old?.id });
     setBusy(false);
     if (r.error) return setErr(r.error);
     setFile(pdf);

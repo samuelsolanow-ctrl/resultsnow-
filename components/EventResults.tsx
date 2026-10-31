@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import ResultsTable from "./ResultsTable";
 import ShareEvent from "./ShareEvent";
 import LimaFlag from "./LimaFlag";
-import { noticeSignature, noticeWhen } from "@/lib/noticeShare";
+import { isResultNotice, noticeSignature, noticeWhen } from "@/lib/noticeShare";
 import NoticeShareButton from "./NoticeShareButton";
 import OfficialResult from "./OfficialResult";
 import { useCanManage } from "@/lib/useCanManage";
@@ -423,7 +423,7 @@ function Notices({ notices, eventName, canShare }: { notices: NoticeRow[]; event
             <p className="text-[11px] font-bold uppercase tracking-wide text-ink-3">Aviso aos competidores</p>
           </div>
           <h3 className="mt-1.5 font-display text-xl font-bold leading-tight">{n.title}</h3>
-          {n.body ? <p className="mt-1 whitespace-pre-line text-sm text-ink-2">{n.body}</p> : null}
+          {n.body && !isResultNotice(n) ? <p className="mt-1 whitespace-pre-line text-sm text-ink-2">{n.body}</p> : null}
           {n.file_url && /\.(png|jpe?g|webp)$/i.test(n.file_url) ? (
             <a href={n.file_url} target="_blank" rel="noreferrer" className="mt-3 block overflow-hidden rounded-lg border border-line">
               {/* eslint-disable-next-line @next/next/no-img-element */}

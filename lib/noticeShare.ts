@@ -21,8 +21,12 @@ export function noticeSignature(n: NoticeRow, at?: string): string {
  */
 export function noticeText(n: NoticeRow, eventName: string): string {
   const lines = ["🟨⬛", "⬛🟨  *AVISO AOS COMPETIDORES*", `_${eventName}_`, "", `*${n.title}*`];
-  if (n.body) lines.push(n.body.length > 600 ? `${n.body.slice(0, 600)}…` : n.body);
+  // resultado vai só no PDF: nunca manda a classificação escrita
+  if (n.body && !isResultNotice(n)) lines.push(n.body.length > 600 ? `${n.body.slice(0, 600)}…` : n.body);
   // o quadro oficial é o grupo do WhatsApp: vale a hora do envio
   lines.push("", `🕐 ${noticeSignature(n, new Date().toISOString())}`);
   return lines.join("\n");
 }
+
+/** Aviso de resultado oficial ("Resultados · Finn · Regata 3") */
+export const isResultNotice = (n: Pick<NoticeRow, "title">) => n.title.startsWith("Resultados · ");
