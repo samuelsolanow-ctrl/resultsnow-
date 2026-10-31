@@ -10,7 +10,7 @@ import { cleanConditions, hasConditions, type RaceConditions } from "@/lib/condi
 import RaceShare from "@/components/RaceShare";
 import { db } from "@/lib/adminDb";
 import { CODE_LABELS, KEEP_PLACE_CODES, POINTS_CODES, computeStandings } from "@/lib/scoring";
-import { parsePtNumbers } from "@/lib/ptNumbers";
+import { matchSpoken } from "@/lib/voiceMatch";
 import { sailDigits } from "@/lib/slug";
 import type { ClassRow, EntryRow, EventRow, RaceRow, ResultRow } from "@/lib/types";
 
@@ -186,14 +186,11 @@ function RaceEditor() {
   }
 
   speechRef.current = (text: string) => {
-    const nums = parsePtNumbers(text);
-    const ids: string[] = [];
-    const miss: number[] = [];
-    for (const n of nums) {
-      const m = pending.filter((e) => sailDigits(e.sail_number) === String(n) && !ids.includes(e.id));
-      if (m.length === 1) ids.push(m[0].id);
-      else miss.push(n);
-    }
+    // entende numeral E nome do velejador, na ordem falada
+    const { ids, misses: miss } = matchSpoken(
+      text,
+      pending.map((e) => ({ id: e.id, sail: e.sail_number, names: [e.helm_name, e.crew_name ?? ""] }))
+    );
     tapMany(ids);
     setMsg(miss.length ? `Não achei (ou já lançado): ${miss.join(", ")}` : null);
   };
@@ -474,7 +471,7 @@ function RaceEditor() {
         {listening ? (
           <div className="mt-2 flex items-center gap-2 rounded-lg bg-red-50 p-2 text-sm text-flag">
             <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-flag" />
-            <span className="min-w-0 flex-1 truncate">{heard || "Ouvindo… fale os números na ordem de chegada"}</span>
+            <span className="min-w-0 flex-1 truncate">{heard || "Ouvindo… fale o numeral ou o nome, na ordem de chegada"}</span>
           </div>
         ) : null}
         <div className="mt-2 flex gap-2">

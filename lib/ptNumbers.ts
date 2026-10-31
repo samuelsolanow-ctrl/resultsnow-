@@ -67,3 +67,69 @@ export function parsePtNumbers(text: string): number[] {
   flush();
   return out;
 }
+
+/* ---------- números E nomes, na ordem falada ---------- */
+
+export type SpokenItem = { kind: "num"; n: number } | { kind: "word"; w: string };
+
+// palavras que a comissão fala mas não identificam barco
+const FILLERS = new Set([
+  "numeral", "numero", "num", "barco", "vela", "velejador", "brasil", "bra", "o", "a", "os", "as", "de", "da", "do", "das", "dos",
+  "chegou", "chegada", "chegando", "depois", "agora", "entao", "ai", "ok", "certo", "isso", "linha", "cruzou", "primeiro",
+  "segundo", "terceiro", "proximo", "mais", "com", "pra", "para", "que", "tem", "vem", "veio", "la", "aqui", "esse", "este",
+]);
+
+export const normWord = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+/** Quebra a fala em números e palavras, mantendo a ordem */
+export function parseSpokenItems(text: string): SpokenItem[] {
+  const tokens = normWord(text)
+    .replace(/(\d)[.\s](?=\d{3}\b)/g, "$1")
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  const out: SpokenItem[] = [];
+  let cur: number | null = null;
+  let lastMag = 0;
+  let joined = false;
+  const flush = () => {
+    if (cur != null) out.push({ kind: "num", n: cur });
+    cur = null;
+    lastMag = 0;
+  };
+  for (const t of tokens) {
+    if (/^\d+$/.test(t)) {
+      flush();
+      out.push({ kind: "num", n: parseInt(t, 10) });
+      joined = false;
+      continue;
+    }
+    if (t === "e") {
+      joined = cur != null;
+      continue;
+    }
+    const v = valueOf(t);
+    if (v == null) {
+      flush();
+      joined = false;
+      if (!FILLERS.has(t) && t.length >= 2) out.push({ kind: "word", w: t });
+      continue;
+    }
+    // "mil": "dois mil e vinte" = 2020
+    if (v === 1000) {
+      cur = (cur ?? 1) * 1000;
+      lastMag = 1000;
+      joined = false;
+      continue;
+    }
+    const mag = magnitude(v);
+    if (cur != null && (joined || lastMag === 1000) && mag < lastMag) cur += v;
+    else {
+      flush();
+      cur = v;
+    }
+    lastMag = mag;
+    joined = false;
+  }
+  flush();
+  return out;
+}
