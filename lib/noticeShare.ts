@@ -20,7 +20,8 @@ export function noticeSignature(n: NoticeRow, at?: string): string {
  * Horário = hora do envio. Sem links: o anexo (PDF, imagem) vai como arquivo junto.
  */
 export function noticeText(n: NoticeRow, eventName: string): string {
-  const lines = ["🟨⬛", "⬛🟨  *AVISO AOS COMPETIDORES*", `_${eventName}_`, "", `*${n.title}*`];
+  // ordem: título do aviso → bandeira L → evento → mensagem → assinatura
+  const lines = ["*AVISO AOS COMPETIDORES*", "🟨⬛", "⬛🟨", "", `_${eventName}_`, `*${n.title}*`];
   // resultado vai só no PDF: nunca manda a classificação escrita
   if (n.body && !isResultNotice(n)) lines.push(n.body.length > 600 ? `${n.body.slice(0, 600)}…` : n.body);
   // o quadro oficial é o grupo do WhatsApp: vale a hora do envio
