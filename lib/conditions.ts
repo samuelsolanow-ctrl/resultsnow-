@@ -14,6 +14,8 @@ export type RaceConditions = {
   course?: string;
   area?: string;
   notes?: string;
+  /** gravações da chegada (só no painel) */
+  recordings?: { url: string; at: string; secs?: number }[];
 };
 
 export const WIND_DIRS = ["N", "NNE", "NE", "ENE", "L", "ESE", "SE", "SSE", "S", "SSO", "SO", "OSO", "O", "ONO", "NO", "NNO"];
@@ -67,13 +69,17 @@ export function conditionsLine(c?: RaceConditions | null): string {
 }
 
 export const hasConditions = (c?: RaceConditions | null) =>
-  !!c && Object.values(c).some((v) => v !== undefined && v !== null && v !== "");
+  !!c && Object.entries(c).some(([k, v]) => k !== "recordings" && v !== undefined && v !== null && v !== "");
 
 /** remove campos vazios antes de salvar */
 export function cleanConditions(c: RaceConditions): RaceConditions {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(c)) {
     if (v === "" || v === null || v === undefined || (typeof v === "number" && Number.isNaN(v))) continue;
+    if (Array.isArray(v)) {
+      if (v.length) out[k] = v;
+      continue;
+    }
     out[k] = typeof v === "string" ? v.trim() : v;
   }
   return out as RaceConditions;

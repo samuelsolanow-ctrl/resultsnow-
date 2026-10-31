@@ -8,7 +8,8 @@ import BackLink from "@/components/BackLink";
 import ConditionsPanel from "@/components/ConditionsPanel";
 import { cleanConditions, hasConditions, type RaceConditions } from "@/lib/conditions";
 import RaceShare from "@/components/RaceShare";
-import { db } from "@/lib/adminDb";
+import { db, uploadAttachment } from "@/lib/adminDb";
+import { dropAudio, pendingAudios, queueAudio } from "@/lib/idbQueue";
 import { CODE_LABELS, KEEP_PLACE_CODES, POINTS_CODES, computeStandings } from "@/lib/scoring";
 import { matchSpoken } from "@/lib/voiceMatch";
 import { sailDigits } from "@/lib/slug";
@@ -69,6 +70,13 @@ function RaceEditor() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recRef = useRef<any>(null);
   const speechRef = useRef<(t: string) => void>(() => {});
+  // gravação do áudio da chegada
+  const mediaRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const recStartRef = useRef<number>(0);
+  const [pendingAudio, setPendingAudio] = useState(0);
+  const [uploadingAudio, setUploadingAudio] = useState(false);
+  const audioUploadRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     (async () => {
@@ -96,7 +104,7 @@ function RaceEditor() {
       else {
         const prev = allRaces.filter((r) => r.number < race.number).pop() as (RaceRow & { conditions?: RaceConditions }) | undefined;
         const pc = prev?.conditions ?? {};
-        setCond(cleanConditions({ area: pc.area, course: pc.course }));
+        setCond(cleanConditions({ area: pc.area, course: pc.course, recordings: race.conditions?.recordings }));
       }
       try {
         const d = localStorage.getItem(`rn-draft-${raceId}`);
@@ -142,9 +150,14 @@ function RaceEditor() {
   useEffect(() => {
     const on = () => {
       if (pendingSyncRef.current) saveRef.current();
+      audioUploadRef.current();
     };
+    const t = setTimeout(() => audioUploadRef.current(), 1500);
     window.addEventListener("online", on);
-    return () => window.removeEventListener("online", on);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("online", on);
+    };
   }, []);
 
   // desliga o microfone ao sair da tela
@@ -152,6 +165,7 @@ function RaceEditor() {
     () => () => {
       listeningRef.current = false;
       recRef.current?.stop?.();
+      if (mediaRef.current && mediaRef.current.state !== "inactive") mediaRef.current.stop();
     },
     []
   );
@@ -195,18 +209,82 @@ function RaceEditor() {
     setMsg(miss.length ? `Não achei (ou já lançado): ${miss.join(", ")}` : null);
   };
 
+  /** envia áudios guardados no celular e registra na regata */
+  async function flushAudios() {
+    const list = await pendingAudios(race.id);
+    setPendingAudio(list.length);
+    if (!list.length || !navigator.onLine) return;
+    setUploadingAudio(true);
+    const added: { url: string; at: string; secs?: number }[] = [];
+    for (const [key, a] of list) {
+      const up = await uploadAttachment(new File([a.blob], a.name, { type: a.type }), ev.id);
+      if (up.url) {
+        added.push({ url: up.url, at: a.at, secs: a.secs });
+        await dropAudio(key);
+      }
+    }
+    if (added.length) {
+      const next = cleanConditions({ ...cond, recordings: [...(cond.recordings ?? []), ...added] });
+      setCond(next);
+      await db.from("races").update({ conditions: next }).eq("id", race.id);
+    }
+    setPendingAudio((await pendingAudios(race.id)).length);
+    setUploadingAudio(false);
+  }
+  audioUploadRef.current = flushAudios;
+
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const type = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm"].find((t) => MediaRecorder.isTypeSupported?.(t)) ?? "";
+      const mr = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+      chunksRef.current = [];
+      mr.ondataavailable = (e) => e.data.size && chunksRef.current.push(e.data);
+      mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const mime = mr.mimeType || "audio/mp4";
+        const blob = new Blob(chunksRef.current, { type: mime });
+        if (!blob.size) return;
+        const at = new Date().toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+        const secs = Math.round((Date.now() - recStartRef.current) / 1000);
+        const ext = mime.includes("webm") ? "webm" : "m4a";
+        const name = `${cls.name}-R${race.number}-chegada-${at.replace(":", "h")}.${ext}`.replace(/\s+/g, "_");
+        await queueAudio(`${race.id}:${Date.now()}`, { raceId: race.id, name, type: mime, at, secs, blob });
+        audioUploadRef.current(); // usa o estado mais recente da regata
+      };
+      recStartRef.current = Date.now();
+      mr.start(1000);
+      mediaRef.current = mr;
+    } catch {
+      setMsg("Não deu para gravar o áudio (microfone bloqueado). O ditado continua funcionando.");
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRef.current && mediaRef.current.state !== "inactive") mediaRef.current.stop();
+    mediaRef.current = null;
+  }
+
   function toggleVoice() {
     if (listening) {
       listeningRef.current = false;
       setListening(false);
       recRef.current?.stop?.();
+      stopRecording();
       setHeard("");
       return;
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const w = window as any;
     const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
-    if (!SR) return setMsg("Este navegador não reconhece voz. No iPhone use o Safari; no Android, o Chrome.");
+    if (!SR) {
+      // sem reconhecimento: ao menos grava o áudio para escutar depois
+      setMsg("Este navegador não transcreve a voz, mas a chegada está sendo gravada.");
+      listeningRef.current = true;
+      setListening(true);
+      startRecording();
+      return;
+    }
     const rec = new SR();
     rec.lang = "pt-BR";
     rec.continuous = true;
@@ -248,6 +326,7 @@ function RaceEditor() {
     } catch {
       /* já ligado */
     }
+    startRecording();
   }
 
   function restoreDraft() {
@@ -367,7 +446,7 @@ function RaceEditor() {
     const ins = del.error ? del : await db.from("results").insert(rows);
     const upd = await db
       .from("races")
-      .update({ sailed_on: date || null, ...(hasConditions(cond) || hasConditions(race.conditions) ? { conditions: cleanConditions(cond) } : {}) })
+      .update({ sailed_on: date || null, ...(hasConditions(cond) || hasConditions(race.conditions) || cond.recordings?.length ? { conditions: cleanConditions(cond) } : {}) })
       .eq("id", race.id);
     if (isNetwork(ins.error?.message) || isNetwork(upd.error?.message)) {
       setBusy(false);
@@ -471,7 +550,7 @@ function RaceEditor() {
         {listening ? (
           <div className="mt-2 flex items-center gap-2 rounded-lg bg-red-50 p-2 text-sm text-flag">
             <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-flag" />
-            <span className="min-w-0 flex-1 truncate">{heard || "Ouvindo… fale o numeral ou o nome, na ordem de chegada"}</span>
+            <span className="min-w-0 flex-1 truncate">{heard || "🔴 Gravando · fale o numeral ou o nome, na ordem de chegada"}</span>
           </div>
         ) : null}
         <div className="mt-2 flex gap-2">
@@ -579,6 +658,32 @@ function RaceEditor() {
           })}
           {!order.length ? <p className="p-3 text-sm text-ink-3">Ninguém chegou ainda.</p> : null}
         </div>
+
+        {/* gravações da chegada */}
+        {cond.recordings?.length || pendingAudio ? (
+          <>
+            <h2 className="mb-2 mt-6 font-display text-xl font-bold">
+              🎧 Gravações da chegada <span className="text-ink-3">{cond.recordings?.length ?? 0}</span>
+            </h2>
+            <div className="card divide-y divide-line">
+              {(cond.recordings ?? []).map((r, i) => (
+                <div key={r.url} className="space-y-1 px-3 py-2">
+                  <p className="text-xs font-semibold text-ink-3">
+                    Gravação {i + 1} · {r.at}
+                    {r.secs ? ` · ${Math.floor(r.secs / 60)}:${String(r.secs % 60).padStart(2, "0")}` : ""}
+                  </p>
+                  <audio controls preload="none" src={r.url} className="h-10 w-full" />
+                </div>
+              ))}
+              {pendingAudio ? (
+                <p className="flex items-center gap-2 px-3 py-2 text-sm text-amber-700">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" />
+                  {uploadingAudio ? "Enviando gravação…" : `${pendingAudio} gravação guardada no celular, envia quando tiver sinal.`}
+                </p>
+              ) : null}
+            </div>
+          </>
+        ) : null}
 
         {/* com código */}
         {coded.length ? (
