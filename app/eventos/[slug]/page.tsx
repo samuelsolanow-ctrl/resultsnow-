@@ -81,6 +81,7 @@ export default async function EventPage({ params }: Props) {
           registration={!!ev.registration_open}
           organizer={ev.organizer}
           helpers={ev.helpers ?? []}
+          eventId={ev.id}
         />
       </div>
     </div>

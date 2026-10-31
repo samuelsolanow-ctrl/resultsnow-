@@ -6,6 +6,7 @@ import ShareEvent from "./ShareEvent";
 import LimaFlag from "./LimaFlag";
 import { noticeSignature, noticeWhen } from "@/lib/noticeShare";
 import NoticeShareButton from "./NoticeShareButton";
+import OfficialResult from "./OfficialResult";
 import { useCanManage } from "@/lib/useCanManage";
 import { downloadSumula, type SumulaData } from "@/lib/pdf";
 import { CODE_LABELS, type Standing } from "@/lib/scoring";
@@ -48,6 +49,7 @@ export default function EventResults({
   registration,
   organizer,
   helpers,
+  eventId,
 }: {
   eventName: string;
   subtitle: string;
@@ -62,6 +64,7 @@ export default function EventResults({
   registration?: boolean;
   organizer?: string | null;
   helpers?: string[];
+  eventId?: string;
 }) {
   const canManage = useCanManage(organizer, helpers);
   const [tab, setTab] = useState<"res" | "avisos" | "protestos">("res");
@@ -229,6 +232,18 @@ export default function EventResults({
       {/* ações: pequenas, mas sempre à vista */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {slug ? <ShareEvent name={eventName} slug={slug} registration={registration} pill /> : null}
+        {canManage && eventId && lastRace && cls && tab === "res" ? (
+          <OfficialResult
+            key={`${cls.id}-${lastRace.id}`}
+            eventId={eventId}
+            eventName={eventName}
+            className={cls.name}
+            raceNumber={lastRace.number}
+            standings={cls.standings}
+            file={img?.raceId === lastRace.id ? img.file : null}
+            notices={notices}
+          />
+        ) : null}
         {lastRace ? (
           <button onClick={shareImage} disabled={imgBusy} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-white px-3.5 text-sm font-semibold text-ink-2 hover:border-ink-3 disabled:opacity-50">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

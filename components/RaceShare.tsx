@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import type { Standing } from "@/lib/scoring";
 import { eventUrl, raceShareText, whatsappLink } from "@/lib/share";
 import type { EntryRow, NoticeRow, ResultRow } from "@/lib/types";
-import { db, uploadAttachment } from "@/lib/adminDb";
+import { publishOfficialResult } from "@/lib/officialResult";
 import { noticeSignature } from "@/lib/noticeShare";
 import NoticeShareButton from "./NoticeShareButton";
 import LimaFlag from "./LimaFlag";
@@ -47,12 +47,7 @@ export default function RaceShare(props: {
   async function publishOfficial() {
     setPosting(true);
     setPostErr(null);
-    let attach: { file_url: string; file_name: string } | Record<string, never> = {};
     const img = files.geral ?? (await fetch(`/api/card/${props.raceId}?modo=geral&v=${stamp}`).then((r) => (r.ok ? r.blob() : null)).then((b) => (b ? new File([b], `${props.className}-Geral-R${props.raceNumber}.png`.replace(/\s+/g, "_"), { type: "image/png" }) : null)).catch(() => null));
-    if (img) {
-      const up = await uploadAttachment(img, props.eventId);
-      if (up.url) attach = { file_url: up.url, file_name: img.name };
-    }
     const body = text
       .split("\n")
       .slice(1) // tira o nome do evento (já vai no cabeçalho do aviso)
@@ -60,14 +55,10 @@ export default function RaceShare(props: {
       .join("\n")
       .replace(/\*/g, "")
       .trim();
-    const { data, error } = await db
-      .from("notices")
-      .insert({ event_id: props.eventId, title: `Resultados · ${props.className} · Regata ${props.raceNumber}`, body, ...attach })
-      .select()
-      .single();
+    const r = await publishOfficialResult({ eventId: props.eventId, className: props.className, raceNumber: props.raceNumber, body, file: img });
     setPosting(false);
-    if (error || !data) return setPostErr(error?.message ?? "Não foi possível publicar.");
-    setOfficial(data as NoticeRow);
+    if (r.error || !r.notice) return setPostErr(r.error ?? "Não foi possível publicar.");
+    setOfficial(r.notice);
   }
 
 
