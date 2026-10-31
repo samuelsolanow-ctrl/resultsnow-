@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import ResultsTable from "./ResultsTable";
 import { downloadSumula, type SumulaData } from "@/lib/pdf";
 import { CODE_LABELS, type Standing } from "@/lib/scoring";
+import { conditionsLine, hasConditions, type RaceConditions } from "@/lib/conditions";
 import type { FlagMode, NoticeRow, ProtestRow } from "@/lib/types";
 
 export type ClassView = {
@@ -11,7 +12,7 @@ export type ClassView = {
   name: string;
   crewSize: number;
   entries: number;
-  races: { id: string; number: number }[];
+  races: { id: string; number: number; conditions?: RaceConditions | null }[];
   nDiscards: number;
   standings: Standing[];
   usedCodes: string[];
@@ -227,6 +228,27 @@ export default function EventResults({
             ) : (
               <p className="p-4 text-sm text-ink-3">Nenhum inscrito ainda.</p>
             )}
+            {cls.races.some((r) => hasConditions(r.conditions)) ? (
+              <details className="group border-t border-line">
+                <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+                  🌬 Condições das regatas
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" className="ml-auto text-ink-3 transition group-open:rotate-180" aria-hidden>
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </summary>
+                <div className="divide-y divide-line border-t border-line">
+                  {cls.races.filter((r) => hasConditions(r.conditions)).map((r) => (
+                    <div key={r.id} className="flex gap-3 px-4 py-2 text-sm">
+                      <span className="w-8 shrink-0 font-display font-bold text-sea">R{r.number}</span>
+                      <span className="min-w-0 text-ink-2">
+                        {conditionsLine(r.conditions)}
+                        {r.conditions?.notes ? <span className="block text-xs text-ink-3">{r.conditions.notes}</span> : null}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ) : null}
             <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-line p-4 text-xs text-ink-3">
               <span>☆ toque para seguir um barco</span>
               <span>( ) descartado</span>

@@ -89,6 +89,7 @@ export interface RaceRow {
   class_id: string;
   number: number;
   sailed_on: string | null;
+  conditions?: import("./conditions").RaceConditions | null;
 }
 
 export interface ResultRow {

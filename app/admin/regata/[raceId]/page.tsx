@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AuthGate from "@/components/AuthGate";
 import BackLink from "@/components/BackLink";
+import ConditionsPanel from "@/components/ConditionsPanel";
+import { cleanConditions, hasConditions, type RaceConditions } from "@/lib/conditions";
 import RaceShare from "@/components/RaceShare";
 import { db } from "@/lib/adminDb";
 import { CODE_LABELS, KEEP_PLACE_CODES, POINTS_CODES, computeStandings } from "@/lib/scoring";
@@ -23,7 +25,7 @@ const FINISH_MARKS = ["", "TIE", ...KEEP_PLACE_CODES];
 const isKeep = (c?: string) => !!c && (KEEP_PLACE_CODES as readonly string[]).includes(c);
 const isPts = (c?: string) => !!c && (POINTS_CODES as readonly string[]).includes(c);
 
-type Draft = { order: string[]; codes: Record<string, string>; tied: string[]; pts: Record<string, string>; date: string; t: number };
+type Draft = { order: string[]; codes: Record<string, string>; tied: string[]; pts: Record<string, string>; date: string; cond?: RaceConditions; t: number };
 
 type Loaded = {
   race: RaceRow;
@@ -46,6 +48,7 @@ function RaceEditor() {
   const [mode, setMode] = useState<string>("FIN"); // FIN = chegada, ou um código
   const [filter, setFilter] = useState("");
   const [date, setDate] = useState("");
+  const [cond, setCond] = useState<RaceConditions>({});
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -88,6 +91,13 @@ function RaceEditor() {
       setCodes(Object.fromEntries(mine.filter((r) => r.code && r.code !== "DNC").map((r) => [r.entry_id, r.code!])));
       setPts(Object.fromEntries(mine.filter((r) => r.points != null).map((r) => [r.entry_id, String(r.points)])));
       setDate(race.sailed_on ?? "");
+      // condições: as já salvas; numa regata nova, repete raia e percurso da anterior
+      if (hasConditions(race.conditions)) setCond(race.conditions);
+      else {
+        const prev = allRaces.filter((r) => r.number < race.number).pop() as (RaceRow & { conditions?: RaceConditions }) | undefined;
+        const pc = prev?.conditions ?? {};
+        setCond(cleanConditions({ area: pc.area, course: pc.course }));
+      }
       try {
         const d = localStorage.getItem(`rn-draft-${raceId}`);
         if (d) setDraftFound(JSON.parse(d));
@@ -95,7 +105,7 @@ function RaceEditor() {
         /* sem armazenamento */
       }
       setData({
-        race: { id: race.id, class_id: race.class_id, number: race.number, sailed_on: race.sailed_on },
+        race: { id: race.id, class_id: race.class_id, number: race.number, sailed_on: race.sailed_on, conditions: race.conditions ?? null },
         cls: cls as ClassRow,
         ev: ev as EventRow,
         entries: list,
@@ -122,11 +132,11 @@ function RaceEditor() {
   useEffect(() => {
     if (!dirty) return;
     try {
-      localStorage.setItem(draftKey, JSON.stringify({ order, codes, tied, pts, date, t: Date.now() }));
+      localStorage.setItem(draftKey, JSON.stringify({ order, codes, tied, pts, date, cond, t: Date.now() }));
     } catch {
       /* sem armazenamento */
     }
-  }, [dirty, order, codes, tied, pts, date, draftKey]);
+  }, [dirty, order, codes, tied, pts, date, cond, draftKey]);
 
   // internet voltou: envia o que ficou pendente
   useEffect(() => {
@@ -250,6 +260,7 @@ function RaceEditor() {
     setTied(draftFound.tied ?? []);
     setPts(draftFound.pts ?? {});
     if (draftFound.date) setDate(draftFound.date);
+    if (draftFound.cond) setCond(draftFound.cond);
     setDraftFound(null);
     setDirty(true);
   }
@@ -357,7 +368,10 @@ function RaceEditor() {
       return;
     }
     const ins = del.error ? del : await db.from("results").insert(rows);
-    const upd = await db.from("races").update({ sailed_on: date || null }).eq("id", race.id);
+    const upd = await db
+      .from("races")
+      .update({ sailed_on: date || null, ...(hasConditions(cond) || hasConditions(race.conditions) ? { conditions: cleanConditions(cond) } : {}) })
+      .eq("id", race.id);
     if (isNetwork(ins.error?.message) || isNetwork(upd.error?.message)) {
       setBusy(false);
       setPendingSync(true);
@@ -493,6 +507,8 @@ function RaceEditor() {
             ? `Toque nos barcos para marcar ${mode}: ${CODE_LABELS[mode] ?? ""}`
             : "Toque nos barcos na ordem em que cruzam a linha"}
         </p>
+
+        <ConditionsPanel value={cond} onChange={(c) => { setCond(c); setDirty(true); setSaved(false); }} />
 
         {/* grade de barcos */}
         <div className="mt-2 grid grid-cols-3 gap-2 min-[400px]:grid-cols-4 sm:grid-cols-5 lg:grid-cols-7">

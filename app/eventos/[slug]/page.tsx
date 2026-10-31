@@ -44,7 +44,7 @@ export default async function EventPage({ params }: Props) {
       name: c.name,
       crewSize: c.crew_size,
       entries: c.entries.length,
-      races: c.races.map((r) => ({ id: r.id, number: r.number })),
+      races: c.races.map((r) => ({ id: r.id, number: r.number, conditions: r.conditions ?? null })),
       nDiscards: discardsFor(c.races.length, c.discard_rules),
       standings,
       usedCodes: Array.from(new Set(standings.flatMap((s) => s.cells.map((x) => x.code)).filter(Boolean) as string[])),

@@ -1,6 +1,7 @@
 "use client";
 // Súmula em PDF (A4 deitado) gerada no próprio celular/computador — funciona em qualquer navegador
 import type { Standing } from "./scoring";
+import { conditionsLine, hasConditions, type RaceConditions } from "./conditions";
 import type { FlagMode, RaceRow } from "./types";
 
 export type SumulaData = {
@@ -12,7 +13,7 @@ export type SumulaData = {
   showClub?: boolean;
   showCbvela?: boolean;
   crewSize: number;
-  races: Pick<RaceRow, "id" | "number">[];
+  races: (Pick<RaceRow, "id" | "number"> & { conditions?: RaceConditions | null })[];
   standings: Standing[];
   legend: string[];
   updated: string;
@@ -153,6 +154,23 @@ export async function downloadSumula(d: SumulaData) {
     doc.setTextColor(100, 116, 139);
     const lines = doc.splitTextToSize(["( ) descartado", ...d.legend].join("   ·   "), W - 2 * M);
     doc.text(lines, M, y);
+  }
+
+  // condições das regatas (se a comissão preencheu)
+  const cond = d.races.filter((r) => hasConditions(r.conditions));
+  if (cond.length) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const startY = ((doc as any).lastAutoTable?.finalY ?? 42) + 14;
+    autoTable(doc, {
+      startY,
+      head: [["Regata", "Condições", "Observações"]],
+      body: cond.map((r) => [`R${r.number}`, conditionsLine(r.conditions), r.conditions?.notes ?? ""]),
+      theme: "grid",
+      margin: { left: M, right: M, bottom: 14 },
+      styles: { font: "helvetica", fontSize: 7.5, cellPadding: 1.4, lineColor: [227, 232, 238], lineWidth: 0.2, textColor: [34, 38, 43] },
+      headStyles: { fillColor: [246, 248, 250], textColor: [100, 116, 139], fontStyle: "bold" },
+      columnStyles: { 0: { cellWidth: 16, fontStyle: "bold" }, 2: { cellWidth: 70 } },
+    });
   }
 
   const file = `Sumula_${d.eventName}_${d.className}`.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w-]+/g, "_");
