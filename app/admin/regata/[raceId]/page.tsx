@@ -110,7 +110,18 @@ function RaceEditor() {
       }
       try {
         const d = localStorage.getItem(`rn-draft-${raceId}`);
-        if (d) setDraftFound(JSON.parse(d));
+        if (d) {
+          const dr = JSON.parse(d) as Draft;
+          // continua de onde parou (a pessoa pode descartar se quiser)
+          setOrder(dr.order ?? []);
+          setCodes(dr.codes ?? {});
+          setTied(dr.tied ?? []);
+          setPts(dr.pts ?? {});
+          if (dr.date) setDate(dr.date);
+          if (dr.cond) setCond(dr.cond);
+          setDirty(true);
+          setDraftFound(dr);
+        }
       } catch {
         /* sem armazenamento */
       }
@@ -159,6 +170,25 @@ function RaceEditor() {
     return () => {
       clearTimeout(t);
       window.removeEventListener("online", on);
+    };
+  }, []);
+
+  // saiu do app / bloqueou a tela: para a gravação e guarda tudo no celular
+  useEffect(() => {
+    const away = (e?: Event) => {
+      if ((e?.type === "pagehide" || document.visibilityState === "hidden") && listeningRef.current) {
+        listeningRef.current = false;
+        setListening(false);
+        recRef.current?.stop?.();
+        if (mediaRef.current && mediaRef.current.state !== "inactive") mediaRef.current.stop();
+        mediaRef.current = null;
+      }
+    };
+    document.addEventListener("visibilitychange", away);
+    window.addEventListener("pagehide", away);
+    return () => {
+      document.removeEventListener("visibilitychange", away);
+      window.removeEventListener("pagehide", away);
     };
   }, []);
 
@@ -246,7 +276,8 @@ function RaceEditor() {
 
   /** envia áudios guardados no celular e registra na regata */
   async function flushAudios() {
-    const list = await pendingAudios(race.id);
+    const recording = !!mediaRef.current && mediaRef.current.state !== "inactive";
+    const list = (await pendingAudios(race.id)).filter(([k]) => !(recording && k.endsWith(":live")));
     setPendingAudio(list.length);
     if (!list.length || !navigator.onLine) return;
     setUploadingAudio(true);
@@ -278,7 +309,26 @@ function RaceEditor() {
       const type = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm"].find((t) => MediaRecorder.isTypeSupported?.(t)) ?? "";
       const mr = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
       chunksRef.current = [];
-      mr.ondataavailable = (e) => e.data.size && chunksRef.current.push(e.data);
+      const liveKey = `${race.id}:live`;
+      const liveAt = new Date().toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+      let n = 0;
+      mr.ondataavailable = (e) => {
+        if (!e.data.size) return;
+        chunksRef.current.push(e.data);
+        // a cada 3 s guarda no celular o que já foi gravado
+        if (++n % 3 === 0) {
+          const mime = mr.mimeType || "audio/mp4";
+          queueAudio(liveKey, {
+            raceId: race.id,
+            name: `${cls.name}-R${race.number}-chegada-${liveAt.replace(":", "h")}.${mime.includes("webm") ? "webm" : "m4a"}`.replace(/\s+/g, "_"),
+            type: mime,
+            at: liveAt,
+            secs: Math.round((Date.now() - recStartRef.current) / 1000),
+            blob: new Blob(chunksRef.current, { type: mime }),
+            auto: !liveGotRef.current,
+          });
+        }
+      };
       mr.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
         const mime = mr.mimeType || "audio/mp4";
@@ -288,6 +338,7 @@ function RaceEditor() {
         const secs = Math.round((Date.now() - recStartRef.current) / 1000);
         const ext = mime.includes("webm") ? "webm" : "m4a";
         const name = `${cls.name}-R${race.number}-chegada-${at.replace(":", "h")}.${ext}`.replace(/\s+/g, "_");
+        await dropAudio(`${race.id}:live`); // a versão completa substitui a parcial
         await queueAudio(`${race.id}:${Date.now()}`, { raceId: race.id, name, type: mime, at, secs, blob, auto: !liveGotRef.current });
         audioUploadRef.current(); // usa o estado mais recente da regata
       };
@@ -577,9 +628,19 @@ function RaceEditor() {
 
         {draftFound ? (
           <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 p-2 text-sm text-amber-800">
-            <span className="flex-1">Há um rascunho não enviado desta regata.</span>
-            <button className="btn h-8 bg-amber-600 px-3 text-white" onClick={restoreDraft}>Recuperar</button>
-            <button className="btn h-8 px-3 text-amber-800" onClick={discardDraft}>Descartar</button>
+            <span className="flex-1">↺ Continuando a chegada de onde você parou (ainda não salva).</span>
+            <button className="btn h-8 px-3 text-amber-800" onClick={() => setDraftFound(null)}>OK</button>
+            <button
+              className="btn h-8 px-3 text-amber-800 underline"
+              onClick={() => {
+                if (confirm("Descartar o que foi lançado e voltar ao que está salvo?")) {
+                  discardDraft();
+                  window.location.reload();
+                }
+              }}
+            >
+              Descartar
+            </button>
           </div>
         ) : null}
         {pendingSync ? (
