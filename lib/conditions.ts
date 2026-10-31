@@ -15,7 +15,7 @@ export type RaceConditions = {
   area?: string;
   notes?: string;
   /** gravações da chegada (só no painel) */
-  recordings?: { url: string; at: string; secs?: number }[];
+  recordings?: { url: string; at: string; secs?: number; text?: string }[];
 };
 
 export const WIND_DIRS = ["N", "NNE", "NE", "ENE", "L", "ESE", "SE", "SSE", "S", "SSO", "SO", "OSO", "O", "ONO", "NO", "NNO"];

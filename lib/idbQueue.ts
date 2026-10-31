@@ -22,7 +22,7 @@ async function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBReq
   });
 }
 
-export type PendingAudio = { raceId: string; name: string; type: string; at: string; secs: number; blob: Blob };
+export type PendingAudio = { raceId: string; name: string; type: string; at: string; secs: number; blob: Blob; auto?: boolean };
 
 export const queueAudio = (key: string, v: PendingAudio) => tx("readwrite", (s) => s.put(v, key)).catch(() => null);
 export const dropAudio = (key: string) => tx("readwrite", (s) => s.delete(key)).catch(() => null);

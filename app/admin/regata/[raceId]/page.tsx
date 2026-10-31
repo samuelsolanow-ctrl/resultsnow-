@@ -77,6 +77,8 @@ function RaceEditor() {
   const [pendingAudio, setPendingAudio] = useState(0);
   const [uploadingAudio, setUploadingAudio] = useState(false);
   const audioUploadRef = useRef<() => void>(() => {});
+  const liveGotRef = useRef(false); // o navegador transcreveu ao vivo nesta sessão?
+  const [transcribing, setTranscribing] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -206,8 +208,41 @@ function RaceEditor() {
       pending.map((e) => ({ id: e.id, sail: e.sail_number, names: [e.helm_name, e.crew_name ?? ""] }))
     );
     tapMany(ids);
+    if (ids.length) liveGotRef.current = true;
     setMsg(miss.length ? `Não achei (ou já lançado): ${miss.join(", ")}` : null);
   };
+
+  /** transcreve uma gravação no servidor e lança os barcos (funciona em qualquer celular) */
+  async function transcribe(url: string) {
+    setTranscribing(url);
+    setMsg(null);
+    const hints = entries.map((e) => `${e.sail_number.replace(/\D/g, "")} ${e.helm_name}`).join(", ");
+    const res = await fetch("/api/transcribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, hints }),
+    }).catch(() => null);
+    const j = res ? await res.json().catch(() => ({})) : { error: "Sem conexão." };
+    setTranscribing(null);
+    if (!res?.ok) return setMsg(j.error ?? "Não foi possível transcrever.");
+    const text = String(j.text ?? "");
+    setHeard(text);
+    // lança na chegada, na ordem falada (só barcos ainda sem chegada)
+    const { ids, misses } = matchSpoken(
+      text,
+      pending.map((e) => ({ id: e.id, sail: e.sail_number, names: [e.helm_name, e.crew_name ?? ""] }))
+    );
+    if (ids.length) {
+      snapshot();
+      setOrder((o) => [...o, ...ids.filter((x) => !o.includes(x))]);
+    }
+    setCond((c) => ({ ...c, recordings: (c.recordings ?? []).map((r) => (r.url === url ? { ...r, text } : r)) }));
+    setDirty(true);
+    setMsg(
+      `${ids.length} barco${ids.length === 1 ? "" : "s"} lançado${ids.length === 1 ? "" : "s"} pela gravação.` +
+        (misses.length ? ` Não achei: ${misses.join(", ")}.` : "")
+    );
+  }
 
   /** envia áudios guardados no celular e registra na regata */
   async function flushAudios() {
@@ -216,10 +251,12 @@ function RaceEditor() {
     if (!list.length || !navigator.onLine) return;
     setUploadingAudio(true);
     const added: { url: string; at: string; secs?: number }[] = [];
+    const auto: string[] = [];
     for (const [key, a] of list) {
       const up = await uploadAttachment(new File([a.blob], a.name, { type: a.type }), ev.id);
       if (up.url) {
         added.push({ url: up.url, at: a.at, secs: a.secs });
+        if (a.auto) auto.push(up.url);
         await dropAudio(key);
       }
     }
@@ -230,6 +267,8 @@ function RaceEditor() {
     }
     setPendingAudio((await pendingAudios(race.id)).length);
     setUploadingAudio(false);
+    // o celular não transcreveu ao vivo: transcreve pela gravação
+    for (const u of auto) await transcribe(u);
   }
   audioUploadRef.current = flushAudios;
 
@@ -249,10 +288,11 @@ function RaceEditor() {
         const secs = Math.round((Date.now() - recStartRef.current) / 1000);
         const ext = mime.includes("webm") ? "webm" : "m4a";
         const name = `${cls.name}-R${race.number}-chegada-${at.replace(":", "h")}.${ext}`.replace(/\s+/g, "_");
-        await queueAudio(`${race.id}:${Date.now()}`, { raceId: race.id, name, type: mime, at, secs, blob });
+        await queueAudio(`${race.id}:${Date.now()}`, { raceId: race.id, name, type: mime, at, secs, blob, auto: !liveGotRef.current });
         audioUploadRef.current(); // usa o estado mais recente da regata
       };
       recStartRef.current = Date.now();
+      liveGotRef.current = false;
       mr.start(1000);
       mediaRef.current = mr;
     } catch {
@@ -279,7 +319,7 @@ function RaceEditor() {
     const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
     if (!SR) {
       // sem reconhecimento: ao menos grava o áudio para escutar depois
-      setMsg("Este navegador não transcreve a voz, mas a chegada está sendo gravada.");
+      setMsg("Gravando. Ao tocar em Parar, a gravação é transcrita e os barcos entram na chegada.");
       listeningRef.current = true;
       setListening(true);
       startRecording();
@@ -301,11 +341,12 @@ function RaceEditor() {
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rec.onerror = (e: any) => {
-      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+      if (e.error === "not-allowed" && !mediaRef.current) {
         listeningRef.current = false;
         setListening(false);
         setMsg("Libere o microfone para o site nas configurações do navegador.");
       }
+      // qualquer outro erro do ao vivo: a gravação continua e é transcrita ao parar
     };
     rec.onend = () => {
       // o celular para de ouvir depois de um silêncio: religa enquanto estiver ativo
@@ -673,6 +714,16 @@ function RaceEditor() {
                     {r.secs ? ` · ${Math.floor(r.secs / 60)}:${String(r.secs % 60).padStart(2, "0")}` : ""}
                   </p>
                   <audio controls preload="none" src={r.url} className="h-10 w-full" />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => transcribe(r.url)}
+                      disabled={!!transcribing}
+                      className="btn-ghost h-8 px-3 text-xs"
+                    >
+                      {transcribing === r.url ? "Transcrevendo…" : r.text ? "↻ Transcrever de novo" : "📝 Transcrever e lançar"}
+                    </button>
+                    {r.text ? <span className="min-w-0 flex-1 text-xs italic text-ink-3">“{r.text}”</span> : null}
+                  </div>
                 </div>
               ))}
               {pendingAudio ? (
