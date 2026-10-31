@@ -61,6 +61,7 @@ export interface NoticeRow {
   body: string | null;
   file_url?: string | null;
   file_name?: string | null;
+  author?: string | null;
   created_at: string;
 }
 

@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import ResultsTable from "./ResultsTable";
 import ShareEvent from "./ShareEvent";
+import LimaFlag from "./LimaFlag";
+import { WhatsIcon } from "./RaceShare";
+import { noticeSignature, noticeText, noticeUrl, noticeWhen } from "@/lib/noticeShare";
 import { downloadSumula, type SumulaData } from "@/lib/pdf";
 import { CODE_LABELS, type Standing } from "@/lib/scoring";
 import { conditionsLine, hasConditions, type RaceConditions } from "@/lib/conditions";
@@ -28,8 +31,6 @@ function readFollow(): string[] {
   }
 }
 
-const fmtTime = (iso: string) =>
-  new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
 /** Resultados (classes, divisões, seguir barcos, PDF) + Avisos + Protestos */
 export default function EventResults({
@@ -65,6 +66,15 @@ export default function EventResults({
   const [err, setErr] = useState<string | null>(null);
   const [img, setImg] = useState<{ raceId: string; file: File } | null>(null);
   const [imgBusy, setImgBusy] = useState(false);
+  const [now] = useState(() => Date.now());
+  // link de um aviso (#aviso-…): rola até ele quando a aba abre
+  useEffect(() => {
+    if (tab !== "avisos" || !window.location.hash.startsWith("#aviso-")) return;
+    const t = setTimeout(() => document.querySelector(window.location.hash)?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
+    return () => clearTimeout(t);
+  }, [tab]);
+  const latest = [...notices].sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+  const showLatest = latest && now - new Date(latest.created_at).getTime() < 24 * 3600 * 1000 ? latest : null;
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
@@ -190,6 +200,26 @@ export default function EventResults({
 
   return (
     <>
+      {/* aviso novo (últimas 24 h): bandeira L em destaque */}
+      {showLatest && tab !== "avisos" ? (
+        <button
+          onClick={() => {
+            setTab("avisos");
+            setParam("aba", "avisos");
+          }}
+          className="mb-3 flex w-full items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-left"
+        >
+          <LimaFlag size={30} />
+          <span className="min-w-0 flex-1">
+            <span className="block text-[11px] font-bold uppercase tracking-wide text-amber-800">
+              Aviso aos competidores · {noticeWhen(showLatest.created_at)}
+            </span>
+            <span className="block truncate text-sm font-semibold text-ink">{showLatest.title}</span>
+          </span>
+          <span className="text-lg text-amber-800">›</span>
+        </button>
+      ) : null}
+
       {/* ações: pequenas, mas sempre à vista */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {slug ? <ShareEvent name={eventName} slug={slug} registration={registration} pill /> : null}
@@ -233,7 +263,7 @@ export default function EventResults({
         </div>
       ) : null}
 
-      {tab === "avisos" ? <Notices notices={notices} /> : null}
+      {tab === "avisos" ? <Notices notices={notices} eventName={eventName} slug={slug} /> : null}
       {tab === "protestos" ? <Protests protests={protests} /> : null}
 
       {tab === "res" && !cls ? <p className="text-ink-3">Este evento ainda não tem classes cadastradas.</p> : null}
@@ -345,13 +375,35 @@ function infoText(cls: ClassView) {
     .join(" · ");
 }
 
-function Notices({ notices }: { notices: NoticeRow[] }) {
+function Notices({ notices, eventName, slug }: { notices: NoticeRow[]; eventName: string; slug?: string }) {
+  const [copied, setCopied] = useState<string | null>(null);
+  const url = (id: string) => (slug ? noticeUrl(window.location.origin, slug, id) : window.location.href);
+  function whats(n: NoticeRow) {
+    window.open(`https://wa.me/?text=${encodeURIComponent(noticeText(n, eventName, url(n.id)))}`, "_blank");
+  }
+  async function more(n: NoticeRow) {
+    const text = noticeText(n, eventName, url(n.id));
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: n.title, text });
+      } catch {
+        /* cancelado */
+      }
+      return;
+    }
+    await navigator.clipboard.writeText(text).catch(() => null);
+    setCopied(n.id);
+    setTimeout(() => setCopied(null), 2000);
+  }
   return (
     <div className="space-y-3">
       {notices.map((n) => (
-        <article key={n.id} className="card p-4">
-          <p className="text-xs font-semibold text-ink-3">{fmtTime(n.created_at)}</p>
-          <h3 className="mt-0.5 font-display text-xl font-bold">{n.title}</h3>
+        <article key={n.id} id={`aviso-${n.id}`} className="card scroll-mt-20 p-4">
+          <div className="flex items-center gap-2">
+            <LimaFlag />
+            <p className="text-[11px] font-bold uppercase tracking-wide text-ink-3">Aviso aos competidores</p>
+          </div>
+          <h3 className="mt-1.5 font-display text-xl font-bold leading-tight">{n.title}</h3>
           {n.body ? <p className="mt-1 whitespace-pre-line text-sm text-ink-2">{n.body}</p> : null}
           {n.file_url ? (
             <a
@@ -369,6 +421,16 @@ function Notices({ notices }: { notices: NoticeRow[] }) {
               </span>
             </a>
           ) : null}
+          {/* assinatura */}
+          <p className="mt-3 border-t border-line pt-2 text-xs italic text-ink-3">✍️ {noticeSignature(n)}</p>
+          <div className="mt-2 flex gap-2">
+            <button onClick={() => whats(n)} className="inline-flex h-8 items-center gap-1.5 rounded-full bg-[#25D366] px-3 text-xs font-bold text-white">
+              <WhatsIcon /> Compartilhar aviso
+            </button>
+            <button onClick={() => more(n)} className="inline-flex h-8 items-center rounded-full border border-line bg-white px-3 text-xs font-semibold text-ink-2">
+              {copied === n.id ? "Copiado ✓" : "⋯ Outros"}
+            </button>
+          </div>
         </article>
       ))}
     </div>

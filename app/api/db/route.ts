@@ -31,6 +31,9 @@ export async function POST(req: Request) {
     const master = isMaster(user);
     // a coluna de ajudantes existe? (antes de rodar o SQL, segue só pelo dono)
     const helpersReady = master ? false : !(await sb.from("events").select("helpers").limit(1)).error;
+    // assinatura do aviso: grava quem publicou (se a coluna já existir)
+    const authorReady =
+      table === "notices" && ops.some((o) => o.m === "insert") ? !(await sb.from("notices").select("author").limit(1)).error : false;
     const denied = await checkAccess(sb, user, master, table, ops);
     if (denied) return NextResponse.json({ data: null, error: { message: denied } }, { status: 403 });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -43,6 +46,11 @@ export async function POST(req: Request) {
         const rows = args[0];
         const stamp = (r: Record<string, unknown>) => ({ ...r, organizer: user });
         args = [Array.isArray(rows) ? rows.map(stamp) : stamp(rows as Record<string, unknown>), ...args.slice(1)];
+      }
+      if (authorReady && op.m === "insert") {
+        const rows = args[0];
+        const sign = (r: Record<string, unknown>) => ({ ...r, author: user });
+        args = [Array.isArray(rows) ? rows.map(sign) : sign(rows as Record<string, unknown>), ...args.slice(1)];
       }
       q = q[op.m](...args);
       // organizador comum só enxerga os próprios eventos na lista do painel

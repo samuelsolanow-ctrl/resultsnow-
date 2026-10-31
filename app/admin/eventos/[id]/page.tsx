@@ -8,6 +8,8 @@ import BackLink from "@/components/BackLink";
 import RegistrationLink, { Chevron } from "@/components/RegistrationLink";
 import ShareEvent from "@/components/ShareEvent";
 import StatusBadge from "@/components/StatusBadge";
+import LimaFlag from "@/components/LimaFlag";
+import { noticeSignature, noticeText, noticeUrl } from "@/lib/noticeShare";
 import { BR_STATES } from "@/lib/flags";
 import { parseList } from "@/lib/parseList";
 import { db, uploadAttachment, uploadCover } from "@/lib/adminDb";
@@ -216,7 +218,7 @@ function EventAdmin({ org }: { org: Organizer }) {
       </div>
 
       {tab === "evento" ? <EventForm ev={ev} onSaved={loadEvent} org={org} /> : null}
-      {tab === "avisos" ? <NoticesTab eventId={ev.id} /> : null}
+      {tab === "avisos" ? <NoticesTab eventId={ev.id} eventName={ev.name} slug={ev.slug} /> : null}
       {tab === "classes" ? <ClassesTab eventId={ev.id} classes={classes} onChange={loadClasses} /> : null}
       {(tab === "inscritos" || tab === "regatas") && !classes.length ? (
         <p className="text-sm text-ink-3">Cadastre uma classe primeiro.</p>
@@ -839,7 +841,7 @@ function RacesTab({ cls }: { cls: ClassRow }) {
 
 const PROTEST_STATUS = ["Agendado", "Em audiência", "Decidido", "Retirado"];
 
-function NoticesTab({ eventId }: { eventId: string }) {
+function NoticesTab({ eventId, eventName, slug }: { eventId: string; eventName: string; slug: string }) {
   const [notices, setNotices] = useState<NoticeRow[]>([]);
   const [protests, setProtests] = useState<ProtestRow[]>([]);
   const [n, setN] = useState({ title: "", body: "" });
@@ -981,7 +983,7 @@ function NoticesTab({ eventId }: { eventId: string }) {
           {notices.map((x) => (
             <div key={x.id} className="flex gap-3 p-3">
               <div className="min-w-0 flex-1">
-                <p className="text-xs text-ink-3">{new Date(x.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" })}</p>
+                <p className="flex items-center gap-1.5 text-xs text-ink-3"><LimaFlag size={16} /> {noticeSignature(x)}</p>
                 <p className="font-semibold">{x.title}</p>
                 {x.body ? <p className="whitespace-pre-line text-sm text-ink-2">{x.body}</p> : null}
                 {x.file_url ? (
@@ -990,7 +992,17 @@ function NoticesTab({ eventId }: { eventId: string }) {
                   </a>
                 ) : null}
               </div>
-              <button className="h-8 text-sm text-red-700" onClick={() => delNotice(x.id)}>Apagar</button>
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(noticeText(x, eventName, noticeUrl(typeof window !== "undefined" ? window.location.origin : "", slug, x.id)))}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-8 items-center rounded-full bg-[#25D366] px-3 text-xs font-bold text-white"
+                >
+                  WhatsApp
+                </a>
+                <button className="h-8 text-sm text-red-700" onClick={() => delNotice(x.id)}>Apagar</button>
+              </div>
             </div>
           ))}
           {!notices.length ? <p className="p-3 text-sm text-ink-3">Nenhum aviso publicado.</p> : null}
