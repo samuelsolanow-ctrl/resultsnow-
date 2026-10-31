@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import ResultsTable from "./ResultsTable";
 import ShareEvent from "./ShareEvent";
 import LimaFlag from "./LimaFlag";
-import { WhatsIcon } from "./RaceShare";
-import { noticeSignature, noticeText, noticeUrl, noticeWhen } from "@/lib/noticeShare";
+import { noticeSignature, noticeWhen } from "@/lib/noticeShare";
+import NoticeShareButton from "./NoticeShareButton";
 import { downloadSumula, type SumulaData } from "@/lib/pdf";
 import { CODE_LABELS, type Standing } from "@/lib/scoring";
 import { conditionsLine, hasConditions, type RaceConditions } from "@/lib/conditions";
@@ -375,26 +375,7 @@ function infoText(cls: ClassView) {
     .join(" · ");
 }
 
-function Notices({ notices, eventName, slug }: { notices: NoticeRow[]; eventName: string; slug?: string }) {
-  const [copied, setCopied] = useState<string | null>(null);
-  const url = (id: string) => (slug ? noticeUrl(window.location.origin, slug, id) : window.location.href);
-  function whats(n: NoticeRow) {
-    window.open(`https://wa.me/?text=${encodeURIComponent(noticeText(n, eventName, url(n.id)))}`, "_blank");
-  }
-  async function more(n: NoticeRow) {
-    const text = noticeText(n, eventName, url(n.id));
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: n.title, text });
-      } catch {
-        /* cancelado */
-      }
-      return;
-    }
-    await navigator.clipboard.writeText(text).catch(() => null);
-    setCopied(n.id);
-    setTimeout(() => setCopied(null), 2000);
-  }
+function Notices({ notices, eventName }: { notices: NoticeRow[]; eventName: string; slug?: string }) {
   return (
     <div className="space-y-3">
       {notices.map((n) => (
@@ -428,13 +409,8 @@ function Notices({ notices, eventName, slug }: { notices: NoticeRow[]; eventName
           ) : null}
           {/* assinatura */}
           <p className="mt-3 border-t border-line pt-2 text-xs italic text-ink-3">✍️ {noticeSignature(n)}</p>
-          <div className="mt-2 flex gap-2">
-            <button onClick={() => whats(n)} className="inline-flex h-8 items-center gap-1.5 rounded-full bg-[#25D366] px-3 text-xs font-bold text-white">
-              <WhatsIcon /> Compartilhar aviso
-            </button>
-            <button onClick={() => more(n)} className="inline-flex h-8 items-center rounded-full border border-line bg-white px-3 text-xs font-semibold text-ink-2">
-              {copied === n.id ? "Copiado ✓" : "⋯ Outros"}
-            </button>
+          <div className="mt-2">
+            <NoticeShareButton notice={n} eventName={eventName} />
           </div>
         </article>
       ))}

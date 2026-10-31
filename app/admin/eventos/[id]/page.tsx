@@ -9,7 +9,8 @@ import RegistrationLink, { Chevron } from "@/components/RegistrationLink";
 import ShareEvent from "@/components/ShareEvent";
 import StatusBadge from "@/components/StatusBadge";
 import LimaFlag from "@/components/LimaFlag";
-import { noticeSignature, noticeText, noticeUrl } from "@/lib/noticeShare";
+import { noticeSignature } from "@/lib/noticeShare";
+import NoticeShareButton from "@/components/NoticeShareButton";
 import { BR_STATES } from "@/lib/flags";
 import { parseList } from "@/lib/parseList";
 import { db, uploadAttachment, uploadCover } from "@/lib/adminDb";
@@ -993,14 +994,7 @@ function NoticesTab({ eventId, eventName, slug }: { eventId: string; eventName: 
                 ) : null}
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1">
-                <a
-                  href={`https://wa.me/?text=${encodeURIComponent(noticeText(x, eventName, noticeUrl(typeof window !== "undefined" ? window.location.origin : "", slug, x.id)))}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex h-8 items-center rounded-full bg-[#25D366] px-3 text-xs font-bold text-white"
-                >
-                  WhatsApp
-                </a>
+                <NoticeShareButton notice={x} eventName={eventName} label="WhatsApp" />
                 <button className="h-8 text-sm text-red-700" onClick={() => delNotice(x.id)}>Apagar</button>
               </div>
             </div>

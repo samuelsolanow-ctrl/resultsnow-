@@ -15,13 +15,13 @@ export function noticeSignature(n: NoticeRow): string {
   return `Publicado em ${noticeWhen(n.created_at)} · Comissão de Regata${n.author ? ` · ${n.author}` : ""}`;
 }
 
-/** Mensagem do aviso para o WhatsApp, com a bandeira Lima (L) desenhada */
-export function noticeText(n: NoticeRow, eventName: string, url: string): string {
+/**
+ * Mensagem do aviso para o WhatsApp: bandeira L, título, texto e assinatura.
+ * Sem links: o anexo (PDF, imagem) vai como arquivo junto.
+ */
+export function noticeText(n: NoticeRow, eventName: string): string {
   const lines = ["🟨⬛", "⬛🟨  *AVISO AOS COMPETIDORES*", `_${eventName}_`, "", `*${n.title}*`];
   if (n.body) lines.push(n.body.length > 600 ? `${n.body.slice(0, 600)}…` : n.body);
-  if (n.file_url) lines.push("", `📎 ${n.file_name ?? "Anexo"}:`, n.file_url);
-  lines.push("", `🕐 ${noticeSignature(n)}`, `Quadro de avisos: ${url}`);
+  lines.push("", `🕐 ${noticeSignature(n)}`);
   return lines.join("\n");
 }
-
-export const noticeUrl = (origin: string, slug: string, id: string) => `${origin}/e/${slug}?aba=avisos#aviso-${id}`;

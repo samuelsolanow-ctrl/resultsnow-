@@ -6,7 +6,8 @@ import type { Standing } from "@/lib/scoring";
 import { eventUrl, raceShareText, whatsappLink } from "@/lib/share";
 import type { EntryRow, NoticeRow, ResultRow } from "@/lib/types";
 import { db, uploadAttachment } from "@/lib/adminDb";
-import { noticeSignature, noticeText, noticeUrl } from "@/lib/noticeShare";
+import { noticeSignature } from "@/lib/noticeShare";
+import NoticeShareButton from "./NoticeShareButton";
 import LimaFlag from "./LimaFlag";
 
 export default function RaceShare(props: {
@@ -69,18 +70,7 @@ export default function RaceShare(props: {
     setOfficial(data as NoticeRow);
   }
 
-  const officialText = official ? noticeText(official, props.eventName, noticeUrl(typeof window !== "undefined" ? window.location.origin : "", props.eventSlug, official.id)) : "";
 
-  async function shareOfficialImage() {
-    if (!official) return;
-    if (files.geral && navigator.canShare?.({ files: [files.geral] })) {
-      try {
-        await navigator.share({ files: [files.geral], text: officialText });
-      } catch {
-        /* cancelado */
-      }
-    } else window.open(whatsappLink(officialText), "_blank");
-  }
 
   // baixa a imagem antes, para o compartilhar abrir na hora do toque (iPhone exige)
   useEffect(() => {
@@ -160,11 +150,14 @@ export default function RaceShare(props: {
                 <LimaFlag size={22} /> No quadro de avisos ✓
               </p>
               <p className="mt-0.5 text-xs italic text-amber-900">✍️ {noticeSignature(official)}</p>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <a href={whatsappLink(officialText)} target="_blank" rel="noreferrer" className="btn h-11 bg-[#25D366] text-white">
-                  <WhatsIcon /> Aviso oficial
-                </a>
-                <button onClick={shareOfficialImage} className="btn-ghost h-11">🖼 Com imagem</button>
+              <div className="mt-2">
+                <NoticeShareButton
+                  notice={official}
+                  eventName={props.eventName}
+                  file={files.geral ?? null}
+                  label="Enviar aviso oficial"
+                  className="btn h-11 w-full bg-[#25D366] text-white"
+                />
               </div>
             </>
           )}
