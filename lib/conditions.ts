@@ -15,7 +15,15 @@ export type RaceConditions = {
   area?: string;
   notes?: string;
   /** gravações da chegada (só no painel) */
-  recordings?: { url: string; at: string; secs?: number; text?: string }[];
+  recordings?: {
+    url: string;
+    at: string; // início
+    end?: string; // fim
+    secs?: number;
+    text?: string;
+    gaps?: string[]; // trechos em que o microfone foi cortado ("13:42–13:44")
+    imported?: boolean; // veio do Gravador do iPhone
+  }[];
 };
 
 export const WIND_DIRS = ["N", "NNE", "NE", "ENE", "L", "ESE", "SE", "SSE", "S", "SSO", "SO", "OSO", "O", "ONO", "NO", "NNO"];

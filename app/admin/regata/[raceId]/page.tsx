@@ -26,6 +26,18 @@ const FINISH_MARKS = ["", "TIE", ...KEEP_PLACE_CODES];
 const isKeep = (c?: string) => !!c && (KEEP_PLACE_CODES as readonly string[]).includes(c);
 const isPts = (c?: string) => !!c && (POINTS_CODES as readonly string[]).includes(c);
 
+const hhmm = () => new Date().toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+const toMin = (t?: string) => {
+  const m = t?.match(/^(\d{1,2}):(\d{2})/);
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+};
+const addSecs = (t: string, secs?: number) => {
+  const m = toMin(t);
+  if (m == null || !secs) return null;
+  const x = (m + Math.round(secs / 60)) % 1440;
+  return `${String(Math.floor(x / 60)).padStart(2, "0")}:${String(x % 60).padStart(2, "0")}`;
+};
+
 type Draft = { order: string[]; codes: Record<string, string>; tied: string[]; pts: Record<string, string>; date: string; cond?: RaceConditions; t: number };
 
 type Loaded = {
@@ -63,6 +75,8 @@ function RaceEditor() {
   const saveRef = useRef<() => void>(() => {});
   const pendingSyncRef = useRef(false);
   pendingSyncRef.current = pendingSync;
+  const dirtyRef = useRef(false);
+  dirtyRef.current = dirty;
   // voz
   const [listening, setListening] = useState(false);
   const [heard, setHeard] = useState("");
@@ -84,6 +98,18 @@ function RaceEditor() {
   const [wakeOk, setWakeOk] = useState<boolean | null>(null);
   const [interrupted, setInterrupted] = useState(false);
   const [transcribing, setTranscribing] = useState<string | null>(null);
+  // proteção da gravação: microfone cortado, silêncio, checklist, importar
+  const streamRef = useRef<MediaStream | null>(null);
+  const meterRef = useRef<{ ctx?: AudioContext; t?: ReturnType<typeof setInterval> }>({});
+  const [level, setLevel] = useState(0);
+  const [micAlert, setMicAlert] = useState<string | null>(null);
+  const silentRef = useRef(false);
+  const gapsRef = useRef<string[]>([]);
+  const muteAtRef = useRef<string | null>(null);
+  const [showCheck, setShowCheck] = useState(false);
+  const [checkInfo, setCheckInfo] = useState<{ online: boolean; freeMb: number | null; wake: boolean }>({ online: true, freeMb: null, wake: true });
+  const [importing, setImporting] = useState(false);
+  const importRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     (async () => {
@@ -190,6 +216,7 @@ function RaceEditor() {
         listeningRef.current = false;
         setListening(false);
         setInterrupted(true);
+        setMicAlert(`A gravação parou às ${hhmm()} porque o app saiu da tela. O que foi gravado até aí está salvo.`);
         recRef.current?.stop?.();
         if (mediaRef.current && mediaRef.current.state !== "inactive") mediaRef.current.stop();
         mediaRef.current = null;
@@ -201,6 +228,19 @@ function RaceEditor() {
       document.removeEventListener("visibilitychange", away);
       window.removeEventListener("pagehide", away);
     };
+  }, []);
+
+  // pede ao celular para não apagar as gravações guardadas e avisa antes de fechar com coisa não salva
+  useEffect(() => {
+    navigator.storage?.persist?.().catch(() => null);
+    const warn = (e: BeforeUnloadEvent) => {
+      if (listeningRef.current || dirtyRef.current) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
   }, []);
 
   // desliga o microfone ao sair da tela
@@ -292,12 +332,12 @@ function RaceEditor() {
     setPendingAudio(list.length);
     if (!list.length || !navigator.onLine) return;
     setUploadingAudio(true);
-    const added: { url: string; at: string; secs?: number }[] = [];
+    const added: { url: string; at: string; end?: string; secs?: number; gaps?: string[] }[] = [];
     const auto: string[] = [];
     for (const [key, a] of list) {
       const up = await uploadAttachment(new File([a.blob], a.name, { type: a.type }), ev.id);
       if (up.url) {
-        added.push({ url: up.url, at: a.at, secs: a.secs });
+        added.push({ url: up.url, at: a.at, end: a.end, secs: a.secs, ...(a.gaps?.length ? { gaps: a.gaps } : {}) });
         if (a.auto) auto.push(up.url);
         await dropAudio(key);
       }
@@ -334,11 +374,34 @@ function RaceEditor() {
   async function startRecording() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      gapsRef.current = [];
+      muteAtRef.current = null;
+      const track = stream.getAudioTracks()[0];
+      if (track) {
+        // ligação, Siri ou alarme pegam o microfone: o iPhone "muta" a gravação
+        track.onmute = () => {
+          if (!listeningRef.current) return;
+          muteAtRef.current = hhmm();
+          setMicAlert(`Microfone cortado às ${muteAtRef.current} (ligação, Siri ou alarme?). Confira esse trecho no caderno.`);
+          if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        };
+        track.onunmute = () => {
+          if (muteAtRef.current) gapsRef.current.push(`${muteAtRef.current}–${hhmm()}`);
+          muteAtRef.current = null;
+          setMicAlert(null);
+        };
+        track.onended = () => {
+          if (!listeningRef.current) return;
+          interrupt(`O microfone foi desligado às ${hhmm()} (ligação ou outro app). O que foi gravado até aí está salvo.`);
+        };
+      }
+      startMeter(stream);
       const type = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm"].find((t) => MediaRecorder.isTypeSupported?.(t)) ?? "";
       const mr = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
       chunksRef.current = [];
       const liveKey = `${race.id}:live`;
-      const liveAt = new Date().toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+      const liveAt = hhmm();
       let n = 0;
       mr.ondataavailable = (e) => {
         if (!e.data.size) return;
@@ -354,20 +417,25 @@ function RaceEditor() {
             secs: Math.round((Date.now() - recStartRef.current) / 1000),
             blob: new Blob(chunksRef.current, { type: mime }),
             auto: !liveGotRef.current,
+            end: hhmm(),
+            gaps: [...gapsRef.current],
           });
         }
       };
       mr.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
+        stopMeter();
         const mime = mr.mimeType || "audio/mp4";
         const blob = new Blob(chunksRef.current, { type: mime });
         if (!blob.size) return;
-        const at = new Date().toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+        const end = hhmm();
+        const gaps = [...gapsRef.current, ...(muteAtRef.current ? [`${muteAtRef.current}–${end}`] : [])];
+        muteAtRef.current = null;
         const secs = Math.round((Date.now() - recStartRef.current) / 1000);
         const ext = mime.includes("webm") ? "webm" : "m4a";
-        const name = `${cls.name}-R${race.number}-chegada-${at.replace(":", "h")}.${ext}`.replace(/\s+/g, "_");
+        const name = `${cls.name}-R${race.number}-chegada-${liveAt.replace(":", "h")}.${ext}`.replace(/\s+/g, "_");
         await dropAudio(`${race.id}:live`); // a versão completa substitui a parcial
-        await queueAudio(`${race.id}:${Date.now()}`, { raceId: race.id, name, type: mime, at, secs, blob, auto: !liveGotRef.current });
+        await queueAudio(`${race.id}:${Date.now()}`, { raceId: race.id, name, type: mime, at: liveAt, end, secs, gaps, blob, auto: !liveGotRef.current });
         audioUploadRef.current(); // usa o estado mais recente da regata
       };
       recStartRef.current = Date.now();
@@ -382,7 +450,124 @@ function RaceEditor() {
   function stopRecording() {
     if (mediaRef.current && mediaRef.current.state !== "inactive") mediaRef.current.stop();
     mediaRef.current = null;
+    stopMeter();
     releaseAwake();
+  }
+
+  /** a gravação caiu sozinha: para tudo, guarda e mostra o botão de continuar */
+  function interrupt(text: string) {
+    listeningRef.current = false;
+    setListening(false);
+    setInterrupted(true);
+    setMicAlert(text);
+    recRef.current?.stop?.();
+    stopRecording();
+    if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
+  }
+
+  /** barrinha de volume: mostra que o microfone está mesmo captando */
+  function startMeter(stream: MediaStream) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const AC = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx: AudioContext = new AC();
+      ctx.resume?.().catch?.(() => null);
+      const an = ctx.createAnalyser();
+      an.fftSize = 1024;
+      ctx.createMediaStreamSource(stream).connect(an);
+      const buf = new Float32Array(an.fftSize);
+      let quiet = 0;
+      const t = setInterval(() => {
+        an.getFloatTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+        const rms = Math.sqrt(sum / buf.length);
+        setLevel(Math.min(1, rms * 10));
+        if (rms < 0.0008) quiet++;
+        else {
+          quiet = 0;
+          if (silentRef.current) {
+            silentRef.current = false;
+            setMicAlert(null);
+          }
+        }
+        // 10 s de silêncio absoluto: o microfone provavelmente não está captando
+        if (quiet === 50 && !muteAtRef.current) {
+          silentRef.current = true;
+          setMicAlert("O microfone não capta som há 10 s. Fale algo: se a barrinha não mexer, toque em Parar e depois em Voz.");
+        }
+      }, 200);
+      meterRef.current = { ctx, t };
+    } catch {
+      /* sem medidor: a gravação segue normal */
+    }
+  }
+
+  function stopMeter() {
+    clearInterval(meterRef.current.t);
+    meterRef.current.ctx?.close?.().catch?.(() => null);
+    meterRef.current = {};
+    silentRef.current = false;
+    setLevel(0);
+  }
+
+  /** antes da 1ª gravação do dia: checklist rápido */
+  async function onVoice() {
+    if (listening) return toggleVoice();
+    let seen = false;
+    try {
+      seen = localStorage.getItem("rn-check") === new Date().toDateString();
+    } catch {
+      /* sem armazenamento */
+    }
+    if (seen || interrupted) return toggleVoice();
+    setShowCheck(true);
+    let freeMb: number | null = null;
+    try {
+      const est = await navigator.storage?.estimate?.();
+      if (est?.quota != null) freeMb = Math.round((est.quota - (est.usage ?? 0)) / 1e6);
+    } catch {
+      /* sem informação */
+    }
+    setCheckInfo({ online: navigator.onLine, freeMb, wake: "wakeLock" in navigator });
+  }
+
+  function startFromCheck() {
+    try {
+      localStorage.setItem("rn-check", new Date().toDateString());
+    } catch {
+      /* sem armazenamento */
+    }
+    setShowCheck(false);
+    toggleVoice();
+  }
+
+  /** importa um áudio do Gravador do iPhone (ou qualquer arquivo de áudio) */
+  async function importAudio(f: File) {
+    setImporting(true);
+    setMsg(null);
+    const secs = await new Promise<number | undefined>((ok) => {
+      const a = new Audio();
+      const u = URL.createObjectURL(f);
+      const done = (v?: number) => {
+        URL.revokeObjectURL(u);
+        ok(v);
+      };
+      a.preload = "metadata";
+      a.onloadedmetadata = () => done(Number.isFinite(a.duration) ? Math.round(a.duration) : undefined);
+      a.onerror = () => done(undefined);
+      setTimeout(() => done(undefined), 4000);
+      a.src = u;
+    });
+    const up = await uploadAttachment(f, ev.id);
+    setImporting(false);
+    if (!up.url) return setMsg(up.error ?? "Não foi possível enviar a gravação.");
+    const t = new Date(f.lastModified || Date.now());
+    const at = t.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+    const next = cleanConditions({ ...cond, recordings: [...(cond.recordings ?? []), { url: up.url, at, secs, imported: true }] });
+    setCond(next);
+    await db.from("races").update({ conditions: next }).eq("id", race.id);
+    setMsg("Gravação importada e salva nesta regata.");
   }
 
   function toggleVoice() {
@@ -403,6 +588,7 @@ function RaceEditor() {
       listeningRef.current = true;
       setListening(true);
       setInterrupted(false);
+      setMicAlert(null);
       keepAwake();
       startRecording();
       return;
@@ -444,6 +630,7 @@ function RaceEditor() {
     listeningRef.current = true;
     setListening(true);
     setInterrupted(false);
+    setMicAlert(null);
     setMsg(null);
     keepAwake();
     try {
@@ -682,12 +869,15 @@ function RaceEditor() {
             Sem sinal. A regata está guardada no celular e é enviada sozinha quando a internet voltar.
           </div>
         ) : null}
+        {micAlert ? (
+          <p className="mt-2 rounded-lg border border-red-200 bg-red-50 p-2 text-sm font-semibold text-flag">⚠ {micAlert}</p>
+        ) : null}
         {interrupted && !listening ? (
           <button
             onClick={toggleVoice}
             className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-flag p-3 text-base font-bold text-white"
           >
-            🔴 A tela apagou — toque para continuar gravando
+            🔴 Gravação parada — toque para continuar
           </button>
         ) : null}
         {listening && wakeOk === false ? (
@@ -699,7 +889,10 @@ function RaceEditor() {
           <div className="mt-2 flex items-center gap-2 rounded-lg bg-red-50 p-2 text-sm text-flag">
             <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-flag" />
             <span className="min-w-0 flex-1 truncate">{heard || "🔴 Gravando · fale o numeral ou o nome, na ordem de chegada"}</span>
-            {wakeOk ? <span className="shrink-0 text-[11px] font-semibold text-ink-3">☀︎ tela acesa</span> : null}
+            <span className="h-2 w-12 shrink-0 overflow-hidden rounded-full bg-red-100" aria-label="Volume do microfone">
+              <span className="block h-full rounded-full bg-flag transition-[width] duration-150" style={{ width: `${Math.max(4, level * 100)}%` }} />
+            </span>
+            {wakeOk ? <span className="shrink-0 text-[11px] font-semibold text-ink-3">☀︎</span> : null}
           </div>
         ) : null}
         <div className="mt-2 flex gap-2">
@@ -713,7 +906,7 @@ function RaceEditor() {
           onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), onFilterEnter())}
         />
           <button
-            onClick={toggleVoice}
+            onClick={onVoice}
             className={`btn h-10 shrink-0 px-3 ${listening ? "bg-flag text-white" : "border border-line bg-white text-ink"}`}
             aria-label={listening ? "Parar ditado" : "Ditar números por voz"}
           >
@@ -809,18 +1002,47 @@ function RaceEditor() {
         </div>
 
         {/* gravações da chegada */}
-        {cond.recordings?.length || pendingAudio ? (
-          <>
-            <h2 className="mb-2 mt-6 font-display text-xl font-bold">
-              🎧 Gravações da chegada <span className="text-ink-3">{cond.recordings?.length ?? 0}</span>
-            </h2>
+        <>
+            <div className="mb-2 mt-6 flex items-center justify-between gap-2">
+              <h2 className="font-display text-xl font-bold">
+                🎧 Gravações <span className="text-ink-3">{cond.recordings?.length ?? 0}</span>
+              </h2>
+              <button onClick={() => importRef.current?.click()} disabled={importing} className="btn-ghost h-9 px-3 text-xs">
+                {importing ? "Enviando…" : "⬆ Importar gravação"}
+              </button>
+              <input
+                ref={importRef}
+                type="file"
+                accept="audio/*,.m4a,.mp3,.wav,.aac,.caf"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = "";
+                  if (f) importAudio(f);
+                }}
+              />
+            </div>
             <div className="card divide-y divide-line">
-              {(cond.recordings ?? []).map((r, i) => (
+              {!cond.recordings?.length && !pendingAudio ? (
+                <p className="p-3 text-xs text-ink-3">
+                  Gravou no Gravador do iPhone? Lá, toque em ⋯ → Compartilhar → Salvar em Arquivos. Depois toque em Importar gravação aqui.
+                </p>
+              ) : null}
+              {(cond.recordings ?? []).map((r, i, all) => {
+                const end = r.end ?? addSecs(r.at, r.secs);
+                const prev = all[i - 1];
+                const prevEnd = prev && !prev.imported && !r.imported ? prev.end ?? addSecs(prev.at, prev.secs) : null;
+                const hole = prevEnd && toMin(r.at)! - toMin(prevEnd)! >= 1 ? `${prevEnd}–${r.at}` : null;
+                return (
                 <div key={r.url} className="space-y-1 px-3 py-2">
+                  {hole ? <p className="-mt-0.5 rounded bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">⚠ Sem gravação das {hole.replace("–", " às ")} — confira no caderno</p> : null}
                   <p className="text-xs font-semibold text-ink-3">
-                    Gravação {i + 1} · {r.at}
+                    {r.imported ? "Importada" : `Gravação ${i + 1}`} · {r.at}{end && !r.imported ? ` → ${end}` : ""}
                     {r.secs ? ` · ${Math.floor(r.secs / 60)}:${String(r.secs % 60).padStart(2, "0")}` : ""}
                   </p>
+                  {r.gaps?.length ? (
+                    <p className="text-xs font-semibold text-flag">⚠ Microfone cortado: {r.gaps.join(", ")} — confira no caderno</p>
+                  ) : null}
                   <audio controls preload="none" src={r.url} className="h-10 w-full" />
                   <div className="flex flex-wrap items-center gap-2">
                     <button
@@ -833,7 +1055,8 @@ function RaceEditor() {
                     {r.text ? <span className="min-w-0 flex-1 text-xs italic text-ink-3">“{r.text}”</span> : null}
                   </div>
                 </div>
-              ))}
+                );
+              })}
               {pendingAudio ? (
                 <p className="flex items-center gap-2 px-3 py-2 text-sm text-amber-700">
                   <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" />
@@ -841,8 +1064,7 @@ function RaceEditor() {
                 </p>
               ) : null}
             </div>
-          </>
-        ) : null}
+        </>
 
         {/* com código */}
         {coded.length ? (
@@ -896,6 +1118,38 @@ function RaceEditor() {
           </button>
         </div>
       </div>
+
+      {showCheck ? (
+        <div className="fixed inset-0 z-40 grid place-items-end bg-night/60 p-3 backdrop-blur-sm sm:place-items-center" onClick={() => setShowCheck(false)}>
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5" onClick={(e) => e.stopPropagation()}>
+            <p className="text-xs font-bold uppercase tracking-widest text-sea">Antes de largar</p>
+            <h2 className="font-display text-2xl font-bold leading-tight">Para a gravação não cortar</h2>
+            <ul className="mt-3 space-y-2 text-sm">
+              {[
+                ["🌙", "Foco/Não Perturbe ligado, com chamadas de Ninguém e “chamadas repetidas” desligado"],
+                ["🎙", "Gravador do iPhone gravando também (backup) — e o caderno à mão"],
+                ["🎧", "Bluetooth desligado: fone, relógio e som do barco"],
+                ["🔋", "Bateria boa, sem Modo de Pouca Energia, celular na sombra"],
+                ["📱", "Não toque em notificações nem troque de app enquanto grava"],
+              ].map(([i, t]) => (
+                <li key={t} className="flex gap-2"><span>{i}</span><span>{t}</span></li>
+              ))}
+            </ul>
+            <div className="mt-3 space-y-1 rounded-lg bg-paper p-2 text-xs">
+              <p>{checkInfo.online ? "✅ Internet ok" : "⚠ Sem internet: grava e lança à mão; o ditado ao vivo pode não funcionar"}</p>
+              {checkInfo.freeMb != null ? (
+                <p>{checkInfo.freeMb > 500 ? "✅ Espaço ok para gravar" : "⚠ Pouco espaço no celular — libere antes da regata"}</p>
+              ) : null}
+              <p>{checkInfo.wake ? "✅ O app mantém a tela acesa" : "⚠ Ponha Bloqueio Automático em Nunca (Ajustes → Tela e Brilho)"}</p>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button onClick={() => setShowCheck(false)} className="btn-ghost">Voltar</button>
+              <button onClick={startFromCheck} className="btn-primary">🎙 Começar a gravar</button>
+            </div>
+            <p className="mt-2 text-center text-[11px] text-ink-3">Aparece só na primeira gravação do dia.</p>
+          </div>
+        </div>
+      ) : null}
 
       {saved ? (
         <RaceShare
