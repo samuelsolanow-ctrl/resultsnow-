@@ -78,6 +78,11 @@ function RaceEditor() {
   const [uploadingAudio, setUploadingAudio] = useState(false);
   const audioUploadRef = useRef<() => void>(() => {});
   const liveGotRef = useRef(false); // o navegador transcreveu ao vivo nesta sessão?
+  // tela sempre acesa enquanto grava
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const wakeRef = useRef<any>(null);
+  const [wakeOk, setWakeOk] = useState<boolean | null>(null);
+  const [interrupted, setInterrupted] = useState(false);
   const [transcribing, setTranscribing] = useState<string | null>(null);
 
   useEffect(() => {
@@ -176,9 +181,15 @@ function RaceEditor() {
   // saiu do app / bloqueou a tela: para a gravação e guarda tudo no celular
   useEffect(() => {
     const away = (e?: Event) => {
+      if (document.visibilityState === "visible") {
+        // voltou: se a tela estava acesa por nós, pede de novo
+        if (listeningRef.current) keepAwake();
+        return;
+      }
       if ((e?.type === "pagehide" || document.visibilityState === "hidden") && listeningRef.current) {
         listeningRef.current = false;
         setListening(false);
+        setInterrupted(true);
         recRef.current?.stop?.();
         if (mediaRef.current && mediaRef.current.state !== "inactive") mediaRef.current.stop();
         mediaRef.current = null;
@@ -303,6 +314,23 @@ function RaceEditor() {
   }
   audioUploadRef.current = flushAudios;
 
+  async function keepAwake() {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const nav = navigator as any;
+      if (!nav.wakeLock) return setWakeOk(false);
+      wakeRef.current = await nav.wakeLock.request("screen");
+      setWakeOk(true);
+    } catch {
+      setWakeOk(false);
+    }
+  }
+
+  function releaseAwake() {
+    wakeRef.current?.release?.().catch?.(() => null);
+    wakeRef.current = null;
+  }
+
   async function startRecording() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -354,6 +382,7 @@ function RaceEditor() {
   function stopRecording() {
     if (mediaRef.current && mediaRef.current.state !== "inactive") mediaRef.current.stop();
     mediaRef.current = null;
+    releaseAwake();
   }
 
   function toggleVoice() {
@@ -373,6 +402,8 @@ function RaceEditor() {
       setMsg("Gravando. Ao tocar em Parar, a gravação é transcrita e os barcos entram na chegada.");
       listeningRef.current = true;
       setListening(true);
+      setInterrupted(false);
+      keepAwake();
       startRecording();
       return;
     }
@@ -412,7 +443,9 @@ function RaceEditor() {
     recRef.current = rec;
     listeningRef.current = true;
     setListening(true);
+    setInterrupted(false);
     setMsg(null);
+    keepAwake();
     try {
       rec.start();
     } catch {
@@ -649,10 +682,24 @@ function RaceEditor() {
             Sem sinal. A regata está guardada no celular e é enviada sozinha quando a internet voltar.
           </div>
         ) : null}
+        {interrupted && !listening ? (
+          <button
+            onClick={toggleVoice}
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-flag p-3 text-base font-bold text-white"
+          >
+            🔴 A tela apagou — toque para continuar gravando
+          </button>
+        ) : null}
+        {listening && wakeOk === false ? (
+          <p className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800">
+            Este celular não deixa o site manter a tela acesa. Para não cortar a gravação, coloque em Ajustes → Tela e Brilho → Bloqueio Automático → <b>Nunca</b> durante a regata.
+          </p>
+        ) : null}
         {listening ? (
           <div className="mt-2 flex items-center gap-2 rounded-lg bg-red-50 p-2 text-sm text-flag">
             <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-flag" />
             <span className="min-w-0 flex-1 truncate">{heard || "🔴 Gravando · fale o numeral ou o nome, na ordem de chegada"}</span>
+            {wakeOk ? <span className="shrink-0 text-[11px] font-semibold text-ink-3">☀︎ tela acesa</span> : null}
           </div>
         ) : null}
         <div className="mt-2 flex gap-2">
