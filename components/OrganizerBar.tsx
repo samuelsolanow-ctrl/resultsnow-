@@ -2,10 +2,19 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { PUBLIC_EVENT, isPublicMode, setPublicMode } from "@/lib/publicMode";
 
 /** Só para o organizador logado (dono, ajudante ou master): barra fixa no rodapé com atalhos */
 export default function OrganizerBar({ eventId, organizer, helpers = [] }: { eventId: string; organizer: string | null; helpers?: string[] }) {
   const [can, setCan] = useState(false);
+  const [pub, setPub] = useState(false);
+
+  useEffect(() => {
+    const sync = () => setPub(isPublicMode());
+    sync();
+    window.addEventListener(PUBLIC_EVENT, sync);
+    return () => window.removeEventListener(PUBLIC_EVENT, sync);
+  }, []);
 
   useEffect(() => {
     fetch("/api/login", { cache: "no-store" })
@@ -22,8 +31,27 @@ export default function OrganizerBar({ eventId, organizer, helpers = [] }: { eve
 
   if (!can) return null;
   const base = `/admin/eventos/${eventId}`;
+
+  // vendo como público: só um botãozinho para voltar
+  if (pub) {
+    return (
+      <button
+        onClick={() => setPublicMode(false)}
+        className="fixed bottom-4 left-1/2 z-30 -translate-x-1/2 rounded-full bg-night px-4 py-2.5 text-sm font-semibold text-white shadow-lg"
+        style={{ marginBottom: "env(safe-area-inset-bottom)" }}
+      >
+        👁 Vendo como público · <u>voltar</u>
+      </button>
+    );
+  }
+
   return (
     <>
+      {/* aviso: você está logado */}
+      <div className="flex items-center justify-between gap-2 bg-amber-100 px-4 py-2 text-xs text-amber-900 sm:text-sm">
+        <span>🔑 Você está como <b>organizador</b></span>
+        <button onClick={() => setPublicMode(true)} className="font-bold underline">👁 Ver como público</button>
+      </div>
       {/* espaço para a barra não cobrir o fim da página */}
       <div className="h-24" />
       <div

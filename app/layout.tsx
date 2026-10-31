@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
+import HeaderUser from "@/components/HeaderUser";
 import { Barlow, Barlow_Condensed } from "next/font/google";
 import "./globals.css";
 
@@ -36,7 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </Link>
             <nav className="flex items-center gap-1 text-sm font-medium">
               <Link href="/" className="rounded-md px-3 py-2 text-white/80 hover:bg-white/10 hover:text-white">Eventos</Link>
-              <Link href="/admin" className="rounded-md px-3 py-2 text-white/80 hover:bg-white/10 hover:text-white">Organizador</Link>
+              <HeaderUser />
             </nav>
           </div>
         </header>

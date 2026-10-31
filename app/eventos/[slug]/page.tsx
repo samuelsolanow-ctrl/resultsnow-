@@ -72,7 +72,7 @@ export default async function EventPage({ params }: Props) {
 
       <div className="wrap py-5 sm:py-8">
         <div className="mb-5 flex flex-wrap items-center gap-2">
-          <ShareEvent name={ev.name} slug={ev.slug} />
+          <ShareEvent name={ev.name} slug={ev.slug} registration={!!ev.registration_open} />
           {ev.registration_open ? (
             <Link href={`/eventos/${ev.slug}/inscricao`} className="btn-primary">
               Inscrever-se

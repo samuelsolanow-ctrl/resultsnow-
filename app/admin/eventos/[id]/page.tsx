@@ -187,11 +187,15 @@ function EventAdmin({ org }: { org: Organizer }) {
         {ev.status !== "draft" ? (
           <details className="group card overflow-hidden">
             <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-sm [&::-webkit-details-marker]:hidden">
-              <span className="font-semibold">Compartilhar resultados</span>
+              <span className="font-semibold">Link do evento</span>
+              <span className="min-w-0 flex-1 truncate text-xs text-sea">/e/{ev.slug}</span>
               <Chevron />
             </summary>
-            <div className="border-t border-line p-3">
-              <ShareEvent name={ev.name} slug={ev.slug} compact />
+            <div className="space-y-2 border-t border-line p-3">
+              <p className="break-all rounded-lg bg-paper px-3 py-2 text-sm font-semibold text-sea">
+                {typeof window !== "undefined" ? window.location.host : ""}/e/{ev.slug}
+              </p>
+              <ShareEvent name={ev.name} slug={ev.slug} compact registration={!!ev.registration_open} />
             </div>
           </details>
         ) : null}
