@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AuthGate, { type Organizer } from "@/components/AuthGate";
 import BackLink from "@/components/BackLink";
 import RegistrationLink, { Chevron } from "@/components/RegistrationLink";
@@ -46,13 +46,22 @@ function EventAdmin({ org }: { org: Organizer }) {
   const sb = db;
   const [ev, setEv] = useState<EventRow | null>(null);
   const [classes, setClasses] = useState<ClassRow[]>([]);
-  const [tab, setTab] = useState<Tab>("evento");
+  const [tab, setTabRaw] = useState<Tab>("evento");
+  const touchedRef = useRef(false);
+  const setTab = (t: Tab | ((x: Tab) => Tab)) => setTabRaw(t);
+  const pickTab = (t: Tab) => {
+    touchedRef.current = true;
+    setTabRaw(t);
+  };
   // abre direto na aba pedida (?aba=regatas, vindo da página pública)
   useEffect(() => {
     const a = new URLSearchParams(window.location.search).get("aba");
     if (a && ["evento", "classes", "inscritos", "regatas", "avisos"].includes(a)) setTab(a as Tab);
   }, []);
   const [classId, setClassId] = useState<string>("");
+  const [raceMap, setRaceMap] = useState<Record<string, { id: string; number: number; n: number }[]>>({});
+  const router = useRouter();
+  const [starting, setStarting] = useState<string | null>(null);
 
   const loadEvent = useCallback(async () => {
     const { data } = await sb.from("events").select("*").eq("id", id).single();
@@ -60,9 +69,26 @@ function EventAdmin({ org }: { org: Organizer }) {
   }, [id]);
 
   const loadClasses = useCallback(async () => {
-    const { data } = await sb.from("classes").select("*").eq("event_id", id).order("sort_order").order("name");
-    const list = (data as ClassRow[]) ?? [];
+    const { data } = await sb
+      .from("classes")
+      .select("*, races(id, number, results(count))")
+      .eq("event_id", id)
+      .order("sort_order")
+      .order("name");
+    type WithRaces = ClassRow & { races?: { id: string; number: number; results?: { count: number }[] }[] };
+    const raw = (data as WithRaces[]) ?? [];
+    const list = raw.map(({ races: _r, ...c }) => c as ClassRow);
+    setRaceMap(
+      Object.fromEntries(
+        raw.map((c) => [
+          c.id,
+          (c.races ?? []).map((r) => ({ id: r.id, number: r.number, n: r.results?.[0]?.count ?? 0 })).sort((a, b) => a.number - b.number),
+        ])
+      )
+    );
     setClasses(list);
+    // evento já montado: abre direto em Regatas (o que mais se usa no dia)
+    if (list.length && !new URLSearchParams(window.location.search).get("aba")) setTab((t) => (t === "evento" && !touchedRef.current ? "regatas" : t));
     setClassId((cur) => (list.some((c) => c.id === cur) ? cur : list[0]?.id ?? ""));
   }, [id]);
 
@@ -77,7 +103,7 @@ function EventAdmin({ org }: { org: Organizer }) {
     ["evento", "Evento"],
     ["classes", `Classes (${classes.length})`],
     ["inscritos", "Inscritos"],
-    ["regatas", "Regatas"],
+    ["regatas", "🏁 Regatas"],
     ["avisos", "Avisos e protestos"],
   ];
 
@@ -94,6 +120,59 @@ function EventAdmin({ org }: { org: Organizer }) {
         ) : null}
       </div>
 
+      {/* destaque: lançar a próxima regata de cada classe */}
+      {classes.length ? (
+        <div className="mb-3 space-y-2">
+          {classes.map((c) => {
+            const rs = raceMap[c.id] ?? [];
+            const last = rs[rs.length - 1];
+            // última regata criada mas ainda sem resultado: continua nela
+            const open = last && !last.n ? last : null;
+            const next = rs.length ? Math.max(...rs.map((r) => r.number)) + 1 : 1;
+            return (
+              <div key={c.id} className="flex items-stretch gap-2">
+                <button
+                  disabled={starting === c.id}
+                  onClick={async () => {
+                    if (open) return router.push(`/admin/regata/${open.id}`);
+                    setStarting(c.id);
+                    const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+                    const { data, error } = await sb.from("races").insert({ class_id: c.id, number: next, sailed_on: today }).select().single();
+                    setStarting(null);
+                    if (error || !data) return alert(error?.message ?? "Não foi possível criar a regata.");
+                    router.push(`/admin/regata/${data.id}`);
+                  }}
+                  className="flex min-h-[64px] flex-1 items-center gap-3 rounded-xl bg-sea px-4 text-left text-white shadow-md transition active:scale-[0.98] disabled:opacity-60"
+                >
+                  <span className="text-3xl leading-none">🏁</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-display text-xl font-bold leading-tight">
+                      {starting === c.id ? "Abrindo…" : open ? `Continuar regata ${open.number}` : `Lançar regata ${next}`}
+                    </span>
+                    <span className="block truncate text-xs text-white/80">
+                      {c.name}
+                      {rs.filter((r) => r.n).length ? ` · ${rs.filter((r) => r.n).length} regata${rs.filter((r) => r.n).length > 1 ? "s" : ""} já lançada${rs.filter((r) => r.n).length > 1 ? "s" : ""}` : " · primeira regata"}
+                    </span>
+                  </span>
+                  <span className="text-2xl leading-none text-white/80">›</span>
+                </button>
+                {rs.some((r) => r.n) ? (
+                  <button
+                    onClick={() => {
+                      setClassId(c.id);
+                      pickTab("regatas");
+                    }}
+                    className="grid w-16 shrink-0 place-items-center rounded-xl border border-line bg-white text-center text-[11px] font-semibold leading-tight text-ink-2"
+                  >
+                    Corrigir<br />anterior
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
       {/* janelas compactas que abrem e fecham */}
       <div className="mb-4 grid gap-2 sm:grid-cols-2">
         <RegistrationLink
@@ -103,7 +182,7 @@ function EventAdmin({ org }: { org: Organizer }) {
           open={!!ev.registration_open}
           hasClasses={classes.length > 0}
           onChange={loadEvent}
-          onManual={() => setTab("inscritos")}
+          onManual={() => pickTab("inscritos")}
         />
         {ev.status !== "draft" ? (
           <details className="group card overflow-hidden">
@@ -122,7 +201,7 @@ function EventAdmin({ org }: { org: Organizer }) {
         {tabs.map(([t, label]) => (
           <button
             key={t}
-            onClick={() => setTab(t)}
+            onClick={() => pickTab(t)}
             className={`-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm font-semibold ${
               tab === t ? "border-sea text-sea" : "border-transparent text-ink-3"
             }`}
