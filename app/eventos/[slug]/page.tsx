@@ -79,6 +79,8 @@ export default async function EventPage({ params }: Props) {
           protests={ev.protests}
           slug={ev.slug}
           registration={!!ev.registration_open}
+          organizer={ev.organizer}
+          helpers={ev.helpers ?? []}
         />
       </div>
     </div>

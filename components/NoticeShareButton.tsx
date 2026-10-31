@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { noticeText } from "@/lib/noticeShare";
 import type { NoticeRow } from "@/lib/types";
 import { WhatsIcon } from "./RaceShare";
+import LimaFlag from "./LimaFlag";
 
 /**
  * Compartilha o aviso: texto com bandeira L + assinatura, e o anexo (PDF/imagem) como ARQUIVO, sem links.
@@ -13,15 +14,24 @@ export default function NoticeShareButton({
   notice,
   eventName,
   file: given,
-  label = "Compartilhar aviso",
-  className = "inline-flex h-8 items-center gap-1.5 rounded-full bg-[#25D366] px-3 text-xs font-bold text-white",
+  label,
+  className,
+  official,
 }: {
   notice: NoticeRow;
   eventName: string;
   file?: File | null;
   label?: string;
   className?: string;
+  /** botão escuro com a bandeira L (aviso oficial do organizador) */
+  official?: boolean;
 }) {
+  const cls =
+    className ??
+    (official
+      ? "inline-flex h-9 items-center gap-2 rounded-full bg-night px-4 text-sm font-bold text-white"
+      : "inline-flex h-8 items-center gap-1.5 rounded-full bg-[#25D366] px-3 text-xs font-bold text-white");
+  const text = label ?? (official ? "Enviar aviso oficial" : "Compartilhar aviso");
   const [file, setFile] = useState<File | null>(given ?? null);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -66,8 +76,9 @@ export default function NoticeShareButton({
 
   return (
     <span className="inline-flex flex-col items-start gap-1">
-      <button onClick={share} className={className}>
-        <WhatsIcon /> {label}
+      <button onClick={share} className={cls}>
+        {official ? <LimaFlag size={20} /> : <WhatsIcon />} {text}
+        {official ? <WhatsIcon color="#25D366" /> : null}
       </button>
       {msg ? <span className="text-[11px] text-ink-3">{msg}</span> : null}
     </span>

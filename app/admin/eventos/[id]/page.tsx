@@ -994,7 +994,7 @@ function NoticesTab({ eventId, eventName, slug }: { eventId: string; eventName: 
                 ) : null}
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1">
-                <NoticeShareButton notice={x} eventName={eventName} label="WhatsApp" />
+                <NoticeShareButton notice={x} eventName={eventName} official label="Enviar" />
                 <button className="h-8 text-sm text-red-700" onClick={() => delNotice(x.id)}>Apagar</button>
               </div>
             </div>

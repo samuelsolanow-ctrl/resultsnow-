@@ -6,6 +6,7 @@ import ShareEvent from "./ShareEvent";
 import LimaFlag from "./LimaFlag";
 import { noticeSignature, noticeWhen } from "@/lib/noticeShare";
 import NoticeShareButton from "./NoticeShareButton";
+import { useCanManage } from "@/lib/useCanManage";
 import { downloadSumula, type SumulaData } from "@/lib/pdf";
 import { CODE_LABELS, type Standing } from "@/lib/scoring";
 import { conditionsLine, hasConditions, type RaceConditions } from "@/lib/conditions";
@@ -45,6 +46,8 @@ export default function EventResults({
   showCbvela = true,
   slug,
   registration,
+  organizer,
+  helpers,
 }: {
   eventName: string;
   subtitle: string;
@@ -57,7 +60,10 @@ export default function EventResults({
   showCbvela?: boolean;
   slug?: string;
   registration?: boolean;
+  organizer?: string | null;
+  helpers?: string[];
 }) {
+  const canManage = useCanManage(organizer, helpers);
   const [tab, setTab] = useState<"res" | "avisos" | "protestos">("res");
   const [activeId, setActiveId] = useState(classes[0]?.id);
   const [division, setDivision] = useState<string>("");
@@ -263,7 +269,7 @@ export default function EventResults({
         </div>
       ) : null}
 
-      {tab === "avisos" ? <Notices notices={notices} eventName={eventName} slug={slug} /> : null}
+      {tab === "avisos" ? <Notices notices={notices} eventName={eventName} canShare={canManage} /> : null}
       {tab === "protestos" ? <Protests protests={protests} /> : null}
 
       {tab === "res" && !cls ? <p className="text-ink-3">Este evento ainda não tem classes cadastradas.</p> : null}
@@ -375,7 +381,7 @@ function infoText(cls: ClassView) {
     .join(" · ");
 }
 
-function Notices({ notices, eventName }: { notices: NoticeRow[]; eventName: string; slug?: string }) {
+function Notices({ notices, eventName, canShare }: { notices: NoticeRow[]; eventName: string; canShare: boolean }) {
   return (
     <div className="space-y-3">
       {notices.map((n) => (
@@ -409,9 +415,12 @@ function Notices({ notices, eventName }: { notices: NoticeRow[]; eventName: stri
           ) : null}
           {/* assinatura */}
           <p className="mt-3 border-t border-line pt-2 text-xs italic text-ink-3">✍️ {noticeSignature(n)}</p>
-          <div className="mt-2">
-            <NoticeShareButton notice={n} eventName={eventName} />
-          </div>
+          {/* só o organizador manda o aviso oficial */}
+          {canShare ? (
+            <div className="mt-2">
+              <NoticeShareButton notice={n} eventName={eventName} official />
+            </div>
+          ) : null}
         </article>
       ))}
     </div>

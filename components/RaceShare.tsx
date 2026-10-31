@@ -155,8 +155,8 @@ export default function RaceShare(props: {
                   notice={official}
                   eventName={props.eventName}
                   file={files.geral ?? null}
-                  label="Enviar aviso oficial"
-                  className="btn h-11 w-full bg-[#25D366] text-white"
+                  official
+                  className="btn h-11 w-full bg-night text-white"
                 />
               </div>
             </>
