@@ -405,7 +405,12 @@ function Notices({ notices, eventName, slug }: { notices: NoticeRow[]; eventName
           </div>
           <h3 className="mt-1.5 font-display text-xl font-bold leading-tight">{n.title}</h3>
           {n.body ? <p className="mt-1 whitespace-pre-line text-sm text-ink-2">{n.body}</p> : null}
-          {n.file_url ? (
+          {n.file_url && /\.(png|jpe?g|webp)$/i.test(n.file_url) ? (
+            <a href={n.file_url} target="_blank" rel="noreferrer" className="mt-3 block overflow-hidden rounded-lg border border-line">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={n.file_url} alt={n.title} loading="lazy" className="w-full" />
+            </a>
+          ) : n.file_url ? (
             <a
               href={n.file_url}
               target="_blank"

@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Standing } from "@/lib/scoring";
 import { eventUrl, raceShareText, whatsappLink } from "@/lib/share";
-import type { EntryRow, ResultRow } from "@/lib/types";
+import type { EntryRow, NoticeRow, ResultRow } from "@/lib/types";
+import { db, uploadAttachment } from "@/lib/adminDb";
+import { noticeSignature, noticeText, noticeUrl } from "@/lib/noticeShare";
+import LimaFlag from "./LimaFlag";
 
 export default function RaceShare(props: {
   onClose: () => void;
@@ -35,6 +38,49 @@ export default function RaceShare(props: {
   const [files, setFiles] = useState<Record<string, File>>({});
   const file = files[mode] ?? null;
   const [copied, setCopied] = useState(false);
+  const [official, setOfficial] = useState<NoticeRow | null>(null);
+  const [posting, setPosting] = useState(false);
+  const [postErr, setPostErr] = useState<string | null>(null);
+
+  /** publica o resultado no quadro de avisos, com bandeira L, horário e assinatura */
+  async function publishOfficial() {
+    setPosting(true);
+    setPostErr(null);
+    let attach: { file_url: string; file_name: string } | Record<string, never> = {};
+    const img = files.geral ?? (await fetch(`/api/card/${props.raceId}?modo=geral&v=${stamp}`).then((r) => (r.ok ? r.blob() : null)).then((b) => (b ? new File([b], `${props.className}-Geral-R${props.raceNumber}.png`.replace(/\s+/g, "_"), { type: "image/png" }) : null)).catch(() => null));
+    if (img) {
+      const up = await uploadAttachment(img, props.eventId);
+      if (up.url) attach = { file_url: up.url, file_name: img.name };
+    }
+    const body = text
+      .split("\n")
+      .slice(1) // tira o nome do evento (já vai no cabeçalho do aviso)
+      .filter((l) => !l.startsWith("Resultados completos"))
+      .join("\n")
+      .replace(/\*/g, "")
+      .trim();
+    const { data, error } = await db
+      .from("notices")
+      .insert({ event_id: props.eventId, title: `Resultados · ${props.className} · Regata ${props.raceNumber}`, body, ...attach })
+      .select()
+      .single();
+    setPosting(false);
+    if (error || !data) return setPostErr(error?.message ?? "Não foi possível publicar.");
+    setOfficial(data as NoticeRow);
+  }
+
+  const officialText = official ? noticeText(official, props.eventName, noticeUrl(typeof window !== "undefined" ? window.location.origin : "", props.eventSlug, official.id)) : "";
+
+  async function shareOfficialImage() {
+    if (!official) return;
+    if (files.geral && navigator.canShare?.({ files: [files.geral] })) {
+      try {
+        await navigator.share({ files: [files.geral], text: officialText });
+      } catch {
+        /* cancelado */
+      }
+    } else window.open(whatsappLink(officialText), "_blank");
+  }
 
   // baixa a imagem antes, para o compartilhar abrir na hora do toque (iPhone exige)
   useEffect(() => {
@@ -92,7 +138,40 @@ export default function RaceShare(props: {
           <button onClick={props.onClose} className="h-9 w-9 rounded-lg text-xl text-ink-3 hover:bg-paper" aria-label="Fechar">×</button>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-1 rounded-lg bg-paper p-1">
+        {/* publicação oficial no quadro de avisos */}
+        <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3">
+          {!official ? (
+            <>
+              <button
+                onClick={publishOfficial}
+                disabled={posting}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-night text-base font-bold text-white disabled:opacity-60"
+              >
+                <LimaFlag size={24} /> {posting ? "Publicando…" : "Publicar oficialmente"}
+              </button>
+              <p className="mt-1.5 text-center text-xs text-amber-900">
+                Vai para o quadro de avisos com bandeira L, horário e sua assinatura.
+              </p>
+              {postErr ? <p className="mt-1 text-center text-xs text-flag">{postErr}</p> : null}
+            </>
+          ) : (
+            <>
+              <p className="flex items-center gap-2 text-sm font-semibold text-amber-900">
+                <LimaFlag size={22} /> No quadro de avisos ✓
+              </p>
+              <p className="mt-0.5 text-xs italic text-amber-900">✍️ {noticeSignature(official)}</p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <a href={whatsappLink(officialText)} target="_blank" rel="noreferrer" className="btn h-11 bg-[#25D366] text-white">
+                  <WhatsIcon /> Aviso oficial
+                </a>
+                <button onClick={shareOfficialImage} className="btn-ghost h-11">🖼 Com imagem</button>
+              </div>
+            </>
+          )}
+        </div>
+
+        <p className="mt-4 text-xs font-bold uppercase tracking-wide text-ink-3">Ou só compartilhar</p>
+        <div className="mt-1 grid grid-cols-2 gap-1 rounded-lg bg-paper p-1">
           {(["geral", "regata"] as const).map((m) => (
             <button
               key={m}
