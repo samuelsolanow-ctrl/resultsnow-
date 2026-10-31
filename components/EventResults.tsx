@@ -284,6 +284,22 @@ function Notices({ notices }: { notices: NoticeRow[] }) {
           <p className="text-xs font-semibold text-ink-3">{fmtTime(n.created_at)}</p>
           <h3 className="mt-0.5 font-display text-xl font-bold">{n.title}</h3>
           {n.body ? <p className="mt-1 whitespace-pre-line text-sm text-ink-2">{n.body}</p> : null}
+          {n.file_url ? (
+            <a
+              href={n.file_url}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 flex items-center gap-3 rounded-lg border border-line bg-paper p-3 hover:border-sea"
+            >
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-sea text-xs font-bold text-white">
+                {(n.file_name?.split(".").pop() ?? "ARQ").slice(0, 4).toUpperCase()}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold">{n.file_name ?? "Anexo"}</span>
+                <span className="text-xs text-sea">Abrir / baixar</span>
+              </span>
+            </a>
+          ) : null}
         </article>
       ))}
     </div>

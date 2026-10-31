@@ -59,6 +59,8 @@ export interface NoticeRow {
   event_id: string;
   title: string;
   body: string | null;
+  file_url?: string | null;
+  file_name?: string | null;
   created_at: string;
 }
 

@@ -10,7 +10,7 @@ import ShareEvent from "@/components/ShareEvent";
 import StatusBadge from "@/components/StatusBadge";
 import { BR_STATES } from "@/lib/flags";
 import { parseList } from "@/lib/parseList";
-import { db, uploadCover } from "@/lib/adminDb";
+import { db, uploadAttachment, uploadCover } from "@/lib/adminDb";
 import type { ClassRow, DiscardRule, EntryRow, EventRow, FlagMode, NoticeRow, ProtestRow, RaceRow } from "@/lib/types";
 
 const CLASS_PRESETS: { name: string; crew: number }[] = [
@@ -759,11 +759,28 @@ function NoticesTab({ eventId }: { eventId: string }) {
     load();
   }, [load]);
 
+  const [file, setFile] = useState<File | null>(null);
+  const [sending, setSending] = useState(false);
+
   async function addNotice(e: React.FormEvent) {
     e.preventDefault();
-    const { error } = await db.from("notices").insert({ event_id: eventId, title: n.title.trim(), body: n.body.trim() || null });
-    if (error) return setMsg(error.message);
+    setSending(true);
+    setMsg(null);
+    let attach: { file_url: string; file_name: string } | null = null;
+    if (file) {
+      const up = await uploadAttachment(file, eventId);
+      if (up.error || !up.url) {
+        setSending(false);
+        return setMsg(up.error ?? "Não foi possível enviar o arquivo.");
+      }
+      attach = { file_url: up.url, file_name: file.name };
+    }
+    const title = n.title.trim() || file?.name.replace(/\.[^.]+$/, "") || "Aviso";
+    const { error } = await db.from("notices").insert({ event_id: eventId, title, body: n.body.trim() || null, ...(attach ?? {}) });
+    setSending(false);
+    if (error) return setMsg(error.message.includes("file_") ? "Rode o SQL dos anexos no Supabase." : error.message);
     setN({ title: "", body: "" });
+    setFile(null);
     load();
   }
 
@@ -824,13 +841,38 @@ function NoticesTab({ eventId }: { eventId: string }) {
         <form onSubmit={addNotice} className="card space-y-3 p-4">
           <div>
             <label className="label">Título</label>
-            <input className="input" required value={n.title} onChange={(e) => setN({ ...n, title: e.target.value })} placeholder="Alteração nº 1 das Instruções de Regata" />
+            <input className="input" required={!file} value={n.title} onChange={(e) => setN({ ...n, title: e.target.value })} placeholder="Instrução de Regata / Alteração nº 1" />
           </div>
           <div>
             <label className="label">Texto</label>
             <textarea className="input h-24 py-2" value={n.body} onChange={(e) => setN({ ...n, body: e.target.value })} placeholder="Largada da classe ILCA 7 adiada para 13h…" />
           </div>
-          <button className="btn-primary">Publicar aviso</button>
+          <div>
+            <label className="label">Anexo (PDF, imagem ou documento)</label>
+            <label className={`flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed p-3 text-sm ${file ? "border-sea bg-sea-50" : "border-line bg-paper hover:border-ink-3"}`}>
+              <span className="text-2xl" aria-hidden>📎</span>
+              <span className="min-w-0 flex-1">
+                {file ? (
+                  <>
+                    <b className="block truncate">{file.name}</b>
+                    <span className="text-xs text-ink-3">{(file.size / 1024 / 1024).toFixed(1)} MB · toque para trocar</span>
+                  </>
+                ) : (
+                  <span className="text-ink-2">Toque para anexar a instrução de regata ou outro arquivo</span>
+                )}
+              </span>
+              {file ? (
+                <button type="button" onClick={(ev) => { ev.preventDefault(); setFile(null); }} className="shrink-0 text-red-700">×</button>
+              ) : null}
+              <input
+                type="file"
+                className="hidden"
+                accept=".pdf,image/*,.doc,.docx,.xls,.xlsx"
+                onChange={(ev) => setFile(ev.target.files?.[0] ?? null)}
+              />
+            </label>
+          </div>
+          <button className="btn-primary" disabled={sending}>{sending ? "Enviando…" : "Publicar aviso"}</button>
         </form>
         <div className="card divide-y divide-line">
           {notices.map((x) => (
@@ -839,6 +881,11 @@ function NoticesTab({ eventId }: { eventId: string }) {
                 <p className="text-xs text-ink-3">{new Date(x.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" })}</p>
                 <p className="font-semibold">{x.title}</p>
                 {x.body ? <p className="whitespace-pre-line text-sm text-ink-2">{x.body}</p> : null}
+                {x.file_url ? (
+                  <a href={x.file_url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-sea">
+                    📎 {x.file_name ?? "Anexo"}
+                  </a>
+                ) : null}
               </div>
               <button className="h-8 text-sm text-red-700" onClick={() => delNotice(x.id)}>Apagar</button>
             </div>

@@ -56,3 +56,20 @@ export async function uploadCover(file: File, eventId: string): Promise<{ url?: 
   const res = await fetch("/api/upload", { method: "POST", body: form });
   return res.json();
 }
+
+/** Envia um anexo (PDF, imagem…) direto para o Storage e devolve o link público */
+export async function uploadAttachment(file: File, eventId: string): Promise<{ url?: string; error?: string }> {
+  const res = await fetch("/api/upload-url", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ eventId, filename: file.name }),
+  });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) return { error: j.error ?? "Não foi possível enviar." };
+  const { supabaseBrowser } = await import("./supabase");
+  const { error } = await supabaseBrowser()
+    .storage.from("covers")
+    .uploadToSignedUrl(j.path, j.token, file, { contentType: file.type || "application/octet-stream" });
+  if (error) return { error: error.message };
+  return { url: j.publicUrl };
+}
