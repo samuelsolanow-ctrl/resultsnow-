@@ -55,7 +55,7 @@ function Tri({ up, color }: { up: boolean; color: string }) {
 
 /**
  * Imagem para WhatsApp.
- *  ?modo=geral (padrão): súmula acumulada até esta regata + pódio da regata
+ *  ?modo=geral (padrão): súmula acumulada até esta regata
  *  ?modo=regata: só a ordem de chegada desta regata
  */
 export async function GET(req: Request, { params }: { params: Promise<{ raceId: string }> }) {
@@ -98,7 +98,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ raceId: 
   const ROW = mode === "geral" ? (nRaces > 10 ? 50 : 56) : 56;
   const rowsCount = mode === "geral" ? shownStandings.length : Math.min(finishers.length, MAX_ROWS);
   const HEADER = 300;
-  const FOOT = mode === "geral" ? 210 : 140;
+  const FOOT = 140;
   const H = Math.max(1080, HEADER + 60 + rowsCount * ROW + FOOT);
 
   // colunas da súmula
@@ -226,7 +226,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ raceId: 
     </div>
   );
 
-  const podium = finishers.slice(0, 3).map((r) => byId.get(r.entry_id)?.helm_name ?? "");
   const penText = penalized
     .map((r) => `${r.code} ${byId.get(r.entry_id)?.sail_number ?? ""}`)
     .join(" · ");
@@ -237,17 +236,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ raceId: 
         {header}
         {mode === "geral" ? geral : regata}
         <div style={{ display: "flex", flexDirection: "column", marginTop: "auto", padding: "0 48px 34px" }}>
-          {mode === "geral" && podium.length ? (
-            <div style={{ display: "flex", flexDirection: "column", border: `2px solid ${LINE}`, borderRadius: 14, padding: "16px 22px", marginBottom: 18 }}>
-              <div style={{ display: "flex", fontSize: 18, fontWeight: 700, color: SEA, letterSpacing: 2 }}>{`REGATA ${race.number}`}</div>
-              <div style={{ display: "flex", fontSize: 24, color: INK, marginTop: 6, gap: 26 }}>
-                {podium.map((n, i) => (
-                  <div key={i} style={{ display: "flex" }}>{`${i + 1}º ${n}`}</div>
-                ))}
-              </div>
-              {penText ? <div style={{ display: "flex", fontSize: 18, color: RED, marginTop: 6 }}>{penText}</div> : null}
-            </div>
-          ) : null}
           {mode === "regata" && penText ? <div style={{ display: "flex", fontSize: 20, color: RED, marginBottom: 12 }}>{penText}</div> : null}
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 19, color: MUTED }}>
             <div style={{ display: "flex" }}>

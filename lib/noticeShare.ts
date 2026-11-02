@@ -30,4 +30,4 @@ export function noticeText(n: NoticeRow, eventName: string): string {
 }
 
 /** Aviso de resultado oficial ("Resultados · Finn · Regata 3") */
-export const isResultNotice = (n: Pick<NoticeRow, "title">) => n.title.startsWith("Resultados · ");
+export const isResultNotice = (n: Pick<NoticeRow, "title">) => n.title.startsWith("Resultados · ") || n.title.startsWith("Classificação geral · ");

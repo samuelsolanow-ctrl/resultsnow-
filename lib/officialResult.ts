@@ -3,7 +3,11 @@
 import { db, uploadAttachment } from "./adminDb";
 import type { NoticeRow } from "./types";
 
-export const resultTitle = (className: string, raceNumber: number) => `Resultados · ${className} · Regata ${raceNumber}`;
+/** "Classificação geral · Finn · após 3 regatas" (a súmula inteira, não só a última regata) */
+export const resultTitle = (className: string, raceNumber: number) =>
+  `Classificação geral · ${className} · após ${raceNumber} regata${raceNumber === 1 ? "" : "s"}`;
+/** título antigo, para substituir avisos publicados antes */
+export const oldResultTitle = (className: string, raceNumber: number) => `Resultados · ${className} · Regata ${raceNumber}`;
 
 /** Publica o resultado no quadro de avisos (imagem + classificação), como aviso oficial */
 export async function publishOfficialResult(o: {

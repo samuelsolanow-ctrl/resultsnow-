@@ -1185,7 +1185,7 @@ function RaceEditor() {
                 legend: codes.map((c) => `${c} ${CODE_LABELS[c] ?? ""}`),
                 updated: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }),
               },
-              `Resultados_${cls.name}_R${race.number}.pdf`.replace(/\s+/g, "_")
+              `Classificacao_Geral_${cls.name}_apos_R${race.number}.pdf`.replace(/\s+/g, "_")
             );
           }}
         />

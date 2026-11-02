@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import type { Standing } from "@/lib/scoring";
 import { eventUrl } from "@/lib/share";
 import type { EntryRow, NoticeRow, ResultRow } from "@/lib/types";
-import { publishOfficialResult, resultTitle } from "@/lib/officialResult";
+import { oldResultTitle, publishOfficialResult, resultTitle } from "@/lib/officialResult";
 import { db } from "@/lib/adminDb";
 import { noticeSignature } from "@/lib/noticeShare";
 import NoticeShareButton from "./NoticeShareButton";
@@ -52,7 +52,7 @@ export default function RaceShare(props: {
       .from("notices")
       .select("id")
       .eq("event_id", props.eventId)
-      .eq("title", resultTitle(props.className, props.raceNumber))
+      .in("title", [resultTitle(props.className, props.raceNumber), oldResultTitle(props.className, props.raceNumber)])
       .limit(1)
       .maybeSingle();
     const oldId = (prev as { id?: string } | null)?.id;
@@ -126,10 +126,10 @@ export default function RaceShare(props: {
                 disabled={posting}
                 className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-night text-base font-bold text-white disabled:opacity-60"
               >
-                <LimaFlag size={24} /> {posting ? "Publicando…" : "Publicar oficialmente"}
+                <LimaFlag size={24} /> {posting ? "Publicando…" : `Publicar classificação geral (após R${props.raceNumber})`}
               </button>
               <p className="mt-1.5 text-center text-xs text-amber-900">
-                Vai para o quadro de avisos com a súmula em PDF, bandeira L, horário e assinatura.
+                A súmula completa em PDF vai para o quadro de avisos, com bandeira L, horário e assinatura.
               </p>
               {postErr ? <p className="mt-1 text-center text-xs text-flag">{postErr}</p> : null}
             </>
@@ -145,6 +145,7 @@ export default function RaceShare(props: {
                   eventName={props.eventName}
                   file={pdfFile}
                   official
+                  label={`Enviar classificação geral (após R${props.raceNumber})`}
                   className="btn h-11 w-full bg-night text-white"
                 />
               </div>

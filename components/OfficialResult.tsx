@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { publishOfficialResult, resultTitle } from "@/lib/officialResult";
+import { oldResultTitle, publishOfficialResult, resultTitle } from "@/lib/officialResult";
 import type { NoticeRow } from "@/lib/types";
 import LimaFlag from "./LimaFlag";
 import NoticeShareButton from "./NoticeShareButton";
@@ -27,7 +27,7 @@ export default function OfficialResult({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
-  const old = notices.find((n) => n.title === title) ?? null;
+  const old = notices.find((n) => n.title === title) ?? notices.find((n) => n.title === oldResultTitle(className, raceNumber)) ?? null;
   // só vale o que já tem o PDF; aviso antigo (texto/imagem) é refeito com o PDF
   const existing = posted ?? (old && /\.pdf$/i.test(old.file_url ?? "") ? old : null);
 
@@ -56,7 +56,7 @@ export default function OfficialResult({
           eventName={eventName}
           file={posted ? file : null}
           official
-          label={`Enviar resultado R${raceNumber}`}
+          label={`Enviar classificação geral (após R${raceNumber})`}
           className="flex h-11 w-full items-center gap-2 rounded-xl bg-night px-3 text-sm font-bold text-white"
         />
       </div>
@@ -69,7 +69,7 @@ export default function OfficialResult({
         disabled={busy}
         className="flex h-11 w-full items-center gap-2 rounded-xl bg-night px-3 text-sm font-bold text-white disabled:opacity-60"
       >
-        <LimaFlag size={22} /> {busy ? "Publicando…" : `Publicar resultado R${raceNumber}`}
+        <LimaFlag size={22} /> {busy ? "Publicando…" : `Publicar classificação geral (após R${raceNumber})`}
         <span className="ml-auto text-[11px] font-normal text-white/50">só você vê</span>
       </button>
       {err ? <span className="text-[11px] text-flag">{err}</span> : null}
