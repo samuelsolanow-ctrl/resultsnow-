@@ -7,6 +7,6 @@ alter table public.events add column if not exists uf text;              -- esta
 alter table public.events add column if not exists area text;            -- raia / local
 alter table public.events add column if not exists level text;           -- nível (Brasileiro, Regional…)
 alter table public.classes add column if not exists planned_races int;   -- regatas programadas
-alter table public.notices add column if not exists kind text not null default 'aviso'; -- 'aviso' ou 'doc' (AR, IR, emendas)
+alter table public.notices add column if not exists kind text;            -- 'aviso' ou 'doc' (AR, IR, emendas); antigos ficam vazios e o app adivinha pelo título
 alter table public.races add column if not exists draft jsonb;           -- chegada em andamento (não publicada)
 notify pgrst, 'reload schema';

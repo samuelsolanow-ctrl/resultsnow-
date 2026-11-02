@@ -17,13 +17,13 @@ export function clubInitials(name?: string | null): string {
 /** documento oficial (AR, IR, emendas)? — usa o campo novo, ou adivinha pelo título nos antigos */
 export function isDoc(n: Pick<NoticeRow, "kind" | "title">): boolean {
   if (n.kind) return n.kind === "doc";
-  return /\b(AR|IR|NoR|SI)\b|instru[cç][aã]o de regata|aviso de regata|emenda/i.test(n.title);
+  return /\b(AR|IR|NoR|SI)\b/.test(n.title) || /instru[cç][aãõ]o|instru[cç][oõ]es de regata|aviso de regata|emenda/i.test(n.title);
 }
 
 /** "AR · IR" a partir dos documentos publicados */
 export function docsBadge(notices: Pick<NoticeRow, "kind" | "title">[]): string {
   const docs = notices.filter(isDoc);
-  const ar = docs.some((d) => /\bAR\b|aviso de regata|NoR/i.test(d.title));
-  const ir = docs.some((d) => /\bIR\b|instru|SI\b/i.test(d.title));
+  const ar = docs.some((d) => /\bAR\b|\bNoR\b/.test(d.title) || /aviso de regata/i.test(d.title));
+  const ir = docs.some((d) => /\bIR\b|\bSI\b/.test(d.title) || /instru/i.test(d.title));
   return [ar ? "AR" : null, ir ? "IR" : null].filter(Boolean).join(" · ") || (docs.length ? `${docs.length} doc${docs.length > 1 ? "s" : ""}` : "");
 }

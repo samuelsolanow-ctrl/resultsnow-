@@ -39,7 +39,7 @@ export function useUndoDelete() {
     const flush = () => {
       for (const [, p] of pending.current) {
         clearTimeout(p.t);
-        p.run();
+        Promise.resolve(p.run()).catch(() => null);
       }
       pending.current.clear();
     };

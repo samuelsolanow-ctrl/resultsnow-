@@ -675,13 +675,13 @@ function RaceEditor() {
     setDirty(true);
   }
 
-  function discardDraft() {
+  async function discardDraft() {
     try {
       localStorage.removeItem(draftKey);
     } catch {
       /* ok */
     }
-    if (draftReadyRef.current) db.from("races").update({ draft: null }).eq("id", raceId);
+    if (draftReadyRef.current) await db.from("races").update({ draft: null }).eq("id", raceId);
     setDraftFound(null);
   }
 
@@ -877,8 +877,7 @@ function RaceEditor() {
               className="btn h-8 px-3 text-amber-800 underline"
               onClick={() => {
                 if (confirm("Descartar o que foi lançado e voltar ao que está salvo?")) {
-                  discardDraft();
-                  window.location.reload();
+                  discardDraft().then(() => window.location.reload());
                 }
               }}
             >

@@ -57,8 +57,9 @@ export default function EventCard({ ev }: { ev: EventFull }) {
             </>
           ) : null}
         </dl>
-        {ev.classes.length ? (
+        {ev.classes.length || ev.level ? (
           <p className="mt-2.5 flex flex-wrap gap-1">
+            {ev.level ? <span className="rounded-full bg-paper px-2 py-0.5 text-[11px] font-semibold text-ink-2">{ev.level}</span> : null}
             {ev.classes.map((c) => (
               <span key={c.id} className="rounded-full bg-sea-50 px-2 py-0.5 text-[11px] font-semibold text-sea">
                 {c.name}
