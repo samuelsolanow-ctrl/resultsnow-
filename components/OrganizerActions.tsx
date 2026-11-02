@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { db } from "@/lib/adminDb";
 import { useCanManage } from "@/lib/useCanManage";
 
 /** Só organizador: botão grande para lançar a próxima regata + editar o evento */
@@ -9,14 +12,38 @@ export default function OrganizerActions({
   organizer,
   helpers,
   label,
+  finished,
 }: {
   eventId: string;
   organizer: string | null;
   helpers: string[];
   label: string;
+  finished?: boolean;
 }) {
   const can = useCanManage(organizer, helpers);
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
   if (!can) return null;
+
+  async function setStatus(status: "finished" | "live") {
+    if (status === "finished" && !confirm("Encerrar o evento? A classificação atual vira a final e o evento vai para Eventos passados.")) return;
+    setBusy(true);
+    await db.from("events").update({ status }).eq("id", eventId);
+    setBusy(false);
+    router.refresh();
+  }
+
+  if (finished) {
+    return (
+      <div className="mb-4 flex items-center justify-between rounded-xl border border-line bg-white px-3 py-2.5 text-sm">
+        <span className="font-semibold text-ink-2">🏆 Evento encerrado</span>
+        <button onClick={() => setStatus("live")} disabled={busy} className="text-xs font-semibold text-sea underline">
+          {busy ? "…" : "Reabrir"}
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="mb-4">
       <div className="flex gap-2">
@@ -36,7 +63,12 @@ export default function OrganizerActions({
           </svg>
         </Link>
       </div>
-      <p className="mt-1 text-right text-[10px] text-ink-3">só você vê</p>
+      <div className="mt-1.5 flex items-center justify-between text-[11px]">
+        <button onClick={() => setStatus("finished")} disabled={busy} className="font-semibold text-ink-3 underline">
+          {busy ? "Encerrando…" : "🏆 Encerrar evento"}
+        </button>
+        <span className="text-ink-3">só você vê</span>
+      </div>
     </div>
   );
 }

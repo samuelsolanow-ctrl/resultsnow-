@@ -97,7 +97,7 @@ export default async function EventPage({ params }: Props) {
       </div>
 
       <div className="wrap max-w-4xl py-4 sm:py-6">
-        <OrganizerActions eventId={ev.id} organizer={ev.organizer} helpers={ev.helpers ?? []} label={launchLabel} />
+        <OrganizerActions eventId={ev.id} organizer={ev.organizer} helpers={ev.helpers ?? []} label={launchLabel} finished={ev.status === "finished"} />
         <EventResults
           eventName={ev.name}
           subtitle={subtitle}

@@ -120,6 +120,28 @@ function EventAdmin({ org }: { org: Organizer }) {
       <div className="mb-3 mt-3 flex flex-wrap items-center gap-2">
         <h1 className="w-full font-display text-2xl font-bold leading-tight sm:text-3xl">{ev.name}</h1>
         <StatusBadge status={ev.status} />
+        {ev.status === "live" ? (
+          <button
+            onClick={async () => {
+              if (!confirm("Encerrar o evento? A classificação atual vira a final e o evento vai para Eventos passados.")) return;
+              await sb.from("events").update({ status: "finished" }).eq("id", ev.id);
+              loadEvent();
+            }}
+            className="rounded-full border border-line bg-white px-3 py-1 text-xs font-semibold text-ink-2"
+          >
+            🏆 Encerrar evento
+          </button>
+        ) : ev.status === "finished" ? (
+          <button
+            onClick={async () => {
+              await sb.from("events").update({ status: "live" }).eq("id", ev.id);
+              loadEvent();
+            }}
+            className="text-xs font-semibold text-sea underline"
+          >
+            Reabrir
+          </button>
+        ) : null}
         {ev.status !== "draft" ? (
           <Link href={`/eventos/${ev.slug}`} target="_blank" className="text-sm font-semibold text-sea">
             Ver página pública ↗
@@ -960,6 +982,7 @@ const NOTICE_TEMPLATES: NoticeTemplate[] = [
   { kind: "aviso", group: "Segurança e outros", label: "Check-out pendente", title: "Check-out pendente", body: "Velejadores que ainda não assinaram o check-out: BRA ___. Procurem a secretaria imediatamente." },
   { kind: "aviso", group: "Segurança e outros", label: "Substituição autorizada", title: "Substituição autorizada", body: "BRA ___: ___ substitui ___." },
   { kind: "aviso", group: "Segurança e outros", label: "Inspeção de equipamento", title: "Inspeção de equipamento", body: "Após a última regata do dia, os seguintes barcos devem se apresentar para inspeção: BRA ___." },
+  { kind: "aviso", group: "Segurança e outros", label: "Encerramento", title: "Encerramento do campeonato", body: "O campeonato está encerrado com ___ regatas válidas. A classificação após a Regata ___ passa a ser a classificação final.\n\nA Comissão de Regata agradece a todos os velejadores, ao clube e às equipes de apoio. Bons ventos e até a próxima!" },
   { kind: "aviso", group: "Segurança e outros", label: "Premiação / social", title: "Premiação", body: "A premiação será às 17h00 na sede do clube." },
   // documentos
   { kind: "doc", group: "Documentos", label: "Aviso de Regata", title: "Aviso de Regata (AR)", body: "" },
