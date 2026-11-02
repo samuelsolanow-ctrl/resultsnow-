@@ -124,7 +124,10 @@ export default function ResultsTable({
                     </div>
                   ) : null}
                   {/* celular: só o numeral */}
-                  <div className="num truncate text-[10px] leading-4 text-ink-3 sm:hidden">{e.sail_number}</div>
+                  <div className="truncate text-[10px] leading-4 text-ink-3 sm:hidden">
+                    <span className="num">{e.sail_number}</span>
+                    {roomy && showClub && e.club ? ` · ${e.club}` : ""}
+                  </div>
                   {/* iPad: bandeira, numeral, clube */}
                   <div className="mt-0.5 hidden items-center gap-1.5 truncate text-[11px] text-ink-3 sm:flex lg:hidden">
                     <Flags mode={flagMode} country={e.country} state={e.state} />
