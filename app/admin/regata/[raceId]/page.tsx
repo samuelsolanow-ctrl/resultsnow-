@@ -8,6 +8,7 @@ import BackLink from "@/components/BackLink";
 import ConditionsPanel from "@/components/ConditionsPanel";
 import { cleanConditions, hasConditions, type RaceConditions } from "@/lib/conditions";
 import RaceShare from "@/components/RaceShare";
+import ResultsTable from "@/components/ResultsTable";
 import { db, uploadAttachment } from "@/lib/adminDb";
 import { dropAudio, pendingAudios, queueAudio } from "@/lib/idbQueue";
 import { CODE_LABELS, KEEP_PLACE_CODES, POINTS_CODES, computeStandings } from "@/lib/scoring";
@@ -826,15 +827,15 @@ function RaceEditor() {
 
   const done = order.length + coded.length;
   const modeIsCode = mode !== "FIN";
-  const rowsNow = saved ? buildRows() : [];
-  const standingsNow = saved
-    ? computeStandings(
-        entries,
-        data.races.filter((r) => r.number <= race.number),
-        [...data.otherResults.filter((r) => data.races.find((x) => x.id === r.race_id)!.number <= race.number), ...rowsNow],
-        cls.discard_rules ?? []
-      )
-    : [];
+  // classificação geral com o que está lançado agora (prévia, antes de publicar)
+  const rowsNow = buildRows();
+  const sailedRaces = data.races.filter((r) => r.number <= race.number);
+  const standingsNow = computeStandings(
+    entries,
+    sailedRaces,
+    [...data.otherResults.filter((r) => (data.races.find((x) => x.id === r.race_id)?.number ?? Infinity) <= race.number), ...rowsNow],
+    cls.discard_rules ?? []
+  );
 
   return (
     <div className="mx-auto w-full max-w-4xl pb-32">
@@ -1022,6 +1023,28 @@ function RaceEditor() {
           })}
           {!order.length ? <p className="p-3 text-sm text-ink-3">Ninguém chegou ainda.</p> : null}
         </div>
+
+        {/* prévia da classificação geral */}
+        <details open className="group mt-6">
+          <summary className="flex cursor-pointer list-none items-end justify-between [&::-webkit-details-marker]:hidden">
+            <span>
+              <span className="block text-[10px] font-bold uppercase tracking-widest text-sea">{dirty ? "Prévia · ainda não publicada" : "Classificação geral"}</span>
+              <span className="font-display text-xl font-bold">Geral após R{race.number}</span>
+            </span>
+            <span className="text-sm text-ink-3 transition group-open:rotate-180">⌄</span>
+          </summary>
+          <div className="card mt-2 overflow-hidden">
+            <ResultsTable
+              standings={standingsNow}
+              races={sailedRaces}
+              flagMode={ev.flag_mode}
+              crewSize={cls.crew_size}
+              showClub={ev.show_club !== false}
+              showCbvela={false}
+            />
+          </div>
+          {pending.length ? <p className="mt-1 text-xs text-ink-3">Barcos ainda sem lançamento aparecem como DNC.</p> : null}
+        </details>
 
         {/* gravações da chegada */}
         <>
