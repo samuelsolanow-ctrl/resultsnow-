@@ -3,10 +3,11 @@ import Flags from "./Flags";
 import type { Standing } from "@/lib/scoring";
 import type { FlagMode, RaceRow } from "@/lib/types";
 
-/** "Rafael Sampaio" → "Rafael S." (celular) */
-const shortName = (n: string) => {
+/** celular: nome e sobrenome ("Jorge Zarif"); com muitas regatas, "Jorge Z." */
+const shortName = (n: string, full = true) => {
   const p = n.trim().split(/\s+/);
-  return p.length > 1 ? `${p[0]} ${p[p.length - 1][0]}.` : n;
+  if (p.length < 2) return n;
+  return full ? `${p[0]} ${p[p.length - 1]}` : `${p[0]} ${p[p.length - 1][0]}.`;
 };
 
 /**
@@ -45,6 +46,8 @@ export default function ResultsTable({
     ...standings.map((s) => ({ s, pin: false })),
   ];
   const many = races.length > 8;
+  // poucas regatas: sobra espaço para nome e sobrenome
+  const roomy = races.length <= 6;
   const th = "border-b border-line bg-white px-1 py-2 text-[10px] font-bold uppercase tracking-wide text-ink-3/80 whitespace-nowrap sm:px-2 sm:text-[11px]";
   const wide = "hidden lg:table-cell";
   const cellPad = "px-0.5 py-1.5 sm:px-2 sm:py-2";
@@ -101,22 +104,22 @@ export default function ResultsTable({
                   ) : null}
                 </td>
                 <td
-                  className={`${td} sticky left-8 z-[1] max-w-[104px] px-1 py-1.5 shadow-[6px_0_8px_-8px_rgba(0,0,0,0.25)] sm:left-10 sm:max-w-[260px] sm:px-2 sm:py-2 lg:shadow-none`}
+                  className={`${td} sticky left-8 z-[1] ${roomy ? "w-[132px] max-w-[132px]" : "max-w-[104px]"} px-1 py-1.5 shadow-[6px_0_8px_-8px_rgba(0,0,0,0.25)] sm:left-10 sm:max-w-[260px] sm:px-2 sm:py-2 lg:shadow-none`}
                 >
                   {onEdit ? (
-                    <button onClick={() => onEdit(e.id)} className="block max-w-full truncate text-left font-bold leading-4 text-sea underline decoration-dotted underline-offset-2 sm:font-semibold sm:leading-5">
-                      <span className="sm:hidden">{shortName(e.helm_name)}</span>
+                    <button onClick={() => onEdit(e.id)} className="line-clamp-2 block max-w-full text-left font-bold leading-4 text-sea underline decoration-dotted underline-offset-2 sm:font-semibold sm:leading-5">
+                      <span className="sm:hidden">{shortName(e.helm_name, roomy)}</span>
                       <span className="hidden sm:inline">{e.helm_name}</span> ✎
                     </button>
                   ) : (
-                    <Link href={`/velejador/${e.id}`} className="block truncate font-bold leading-4 hover:text-sea hover:underline sm:font-semibold sm:leading-5">
-                      <span className="sm:hidden">{shortName(e.helm_name)}</span>
+                    <Link href={`/velejador/${e.id}`} className="line-clamp-2 block font-bold leading-4 hover:text-sea hover:underline sm:font-semibold sm:leading-5">
+                      <span className="sm:hidden">{shortName(e.helm_name, roomy)}</span>
                       <span className="hidden sm:inline">{e.helm_name}</span>
                     </Link>
                   )}
                   {dual ? (
                     <div className="truncate text-[11px] leading-4 text-ink-3 sm:text-xs sm:leading-5">
-                      <span className="sm:hidden">{shortName(e.crew_name!)}</span>
+                      <span className="sm:hidden">{shortName(e.crew_name!, roomy)}</span>
                       <span className="hidden sm:inline">{e.crew_name}</span>
                     </div>
                   ) : null}
