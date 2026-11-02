@@ -6,6 +6,7 @@ import LimaFlag from "./LimaFlag";
 import { isResultNotice, noticeWhen } from "@/lib/noticeShare";
 import NoticeShareButton from "./NoticeShareButton";
 import OfficialResult from "./OfficialResult";
+import EntryEditModal from "./EntryEditModal";
 import { useCanManage } from "@/lib/useCanManage";
 import { isDoc } from "@/lib/eventInfo";
 import { downloadSumula, sumulaFile, type SumulaData } from "@/lib/pdf";
@@ -75,6 +76,7 @@ export default function EventResults({
   const [err, setErr] = useState<string | null>(null);
   const [img, setImg] = useState<{ raceId: string; file: File } | null>(null);
   const [imgBusy, setImgBusy] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
   const [now] = useState(() => Date.now());
   // link de um aviso (#aviso-…): rola até ele quando a aba abre
   useEffect(() => {
@@ -260,6 +262,12 @@ export default function EventResults({
         </div>
       ) : null}
 
+      {editing && cls ? (
+        (() => {
+          const en = cls.standings.find((x) => x.entry.id === editing)?.entry;
+          return en ? <EntryEditModal entry={en} crewSize={cls.crewSize} onClose={() => setEditing(null)} /> : null;
+        })()
+      ) : null}
       {tab === "avisos" ? <Notices notices={avisos} eventName={eventName} canShare={canManage} /> : null}
       {tab === "docs" ? <Notices notices={docs} eventName={eventName} canShare={canManage} /> : null}
       {tab === "protestos" ? <Protests protests={protests} /> : null}
@@ -327,6 +335,7 @@ export default function EventResults({
                 onFollow={toggleFollow}
                 showClub={showClub}
                 showCbvela={showCbvela}
+                onEdit={canManage ? setEditing : undefined}
               />
             ) : (
               <p className="p-4 text-sm text-ink-3">Nenhum inscrito ainda.</p>

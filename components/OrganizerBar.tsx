@@ -51,7 +51,7 @@ export default function OrganizerBar({ eventId, organizer, helpers = [] }: { eve
     <div className="flex items-center gap-1.5 overflow-x-auto bg-amber-50 px-3 py-1.5 text-amber-900 sm:px-4">
       <span className="mr-auto shrink-0 text-xs font-semibold">🔑 Organizador</span>
       <Link href={base} className={`${btn} shrink-0 bg-night text-white`}>✎ Editar</Link>
-      <Link href={`${base}?aba=regatas`} className={`${btn} shrink-0 bg-night text-white`}>🏁 Lançar</Link>
+      <Link href={`/admin/lancar/${eventId}`} className={`${btn} shrink-0 bg-night text-white`}>🏁 Lançar</Link>
       <button onClick={() => setPublicMode(true)} className={`${btn} shrink-0 border border-amber-300 bg-white`}>👁 Público</button>
     </div>
   );

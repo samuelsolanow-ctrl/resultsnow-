@@ -63,7 +63,11 @@ export async function POST(req: Request) {
     }
     const { data, error, count } = await q;
     // gravou algo: limpa o cache das páginas públicas para aparecer na hora
-    if (!error && ops.some((o) => WRITES.has(o.m))) revalidatePath("/", "layout");
+    // (rascunho da chegada não aparece no site: não precisa limpar)
+    const draftOnly =
+      table === "races" &&
+      ops.some((o) => o.m === "update" && Object.keys((o.a?.[0] as Record<string, unknown>) ?? {}).every((k) => k === "draft"));
+    if (!error && !draftOnly && ops.some((o) => WRITES.has(o.m))) revalidatePath("/", "layout");
     return NextResponse.json({ data, error, count });
   } catch (e) {
     return NextResponse.json({ data: null, error: { message: (e as Error).message } }, { status: 500 });

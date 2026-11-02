@@ -24,6 +24,7 @@ export default function ResultsTable({
   onFollow,
   showClub = true,
   showCbvela = true,
+  onEdit,
 }: {
   standings: Standing[];
   races: Pick<RaceRow, "id" | "number">[];
@@ -33,6 +34,8 @@ export default function ResultsTable({
   onFollow?: (entryId: string) => void;
   showClub?: boolean;
   showCbvela?: boolean;
+  /** organizador: tocar no nome abre a correção da inscrição */
+  onEdit?: (entryId: string) => void;
 }) {
   const showFlag = flagMode !== "none";
   // barcos seguidos aparecem no topo, destacados, e também na posição normal
@@ -100,10 +103,17 @@ export default function ResultsTable({
                 <td
                   className={`${td} sticky left-8 z-[1] max-w-[104px] px-1 py-1.5 shadow-[6px_0_8px_-8px_rgba(0,0,0,0.25)] sm:left-10 sm:max-w-[260px] sm:px-2 sm:py-2 lg:shadow-none`}
                 >
-                  <Link href={`/velejador/${e.id}`} className="block truncate font-bold leading-4 hover:text-sea hover:underline sm:font-semibold sm:leading-5">
-                    <span className="sm:hidden">{shortName(e.helm_name)}</span>
-                    <span className="hidden sm:inline">{e.helm_name}</span>
-                  </Link>
+                  {onEdit ? (
+                    <button onClick={() => onEdit(e.id)} className="block max-w-full truncate text-left font-bold leading-4 text-sea underline decoration-dotted underline-offset-2 sm:font-semibold sm:leading-5">
+                      <span className="sm:hidden">{shortName(e.helm_name)}</span>
+                      <span className="hidden sm:inline">{e.helm_name}</span> ✎
+                    </button>
+                  ) : (
+                    <Link href={`/velejador/${e.id}`} className="block truncate font-bold leading-4 hover:text-sea hover:underline sm:font-semibold sm:leading-5">
+                      <span className="sm:hidden">{shortName(e.helm_name)}</span>
+                      <span className="hidden sm:inline">{e.helm_name}</span>
+                    </Link>
+                  )}
                   {dual ? (
                     <div className="truncate text-[11px] leading-4 text-ink-3 sm:text-xs sm:leading-5">
                       <span className="sm:hidden">{shortName(e.crew_name!)}</span>

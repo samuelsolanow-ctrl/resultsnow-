@@ -76,6 +76,8 @@ function RaceEditor() {
   const draftKey = `rn-draft-${raceId}`;
   const saveRef = useRef<() => void>(() => {});
   const pendingSyncRef = useRef(false);
+  const draftReadyRef = useRef(false); // coluna "draft" existe (SQL rodado)
+  const [cloud, setCloud] = useState<"" | "saving" | "ok">("");
   pendingSyncRef.current = pendingSync;
   const dirtyRef = useRef(false);
   dirtyRef.current = dirty;
@@ -141,10 +143,14 @@ function RaceEditor() {
         const pc = prev?.conditions ?? {};
         setCond(cleanConditions({ area: pc.area, course: pc.course, recordings: race.conditions?.recordings }));
       }
+      draftReadyRef.current = "draft" in race;
       try {
-        const d = localStorage.getItem(`rn-draft-${raceId}`);
-        if (d) {
-          const dr = JSON.parse(d) as Draft;
+        const local = localStorage.getItem(`rn-draft-${raceId}`);
+        const localDr = local ? (JSON.parse(local) as Draft) : null;
+        // rascunho guardado no servidor (ex.: começou em outro celular ou o celular apagou)
+        const serverDr = (race.draft as Draft | null) ?? null;
+        const dr = localDr && serverDr ? (localDr.t >= serverDr.t ? localDr : serverDr) : localDr ?? serverDr;
+        if (dr) {
           // continua de onde parou (a pessoa pode descartar se quiser)
           setOrder(dr.order ?? []);
           setCodes(dr.codes ?? {});
@@ -191,6 +197,20 @@ function RaceEditor() {
       /* sem armazenamento */
     }
   }, [dirty, order, codes, tied, pts, date, cond, draftKey]);
+
+  // …e no servidor, 1,5 s depois do último toque (não publica: só guarda o rascunho)
+  useEffect(() => {
+    if (!dirty || !draftReadyRef.current) return;
+    setCloud("saving");
+    const t = setTimeout(async () => {
+      const { error } = await db
+        .from("races")
+        .update({ draft: { order, codes, tied, pts, date, cond, t: Date.now() } })
+        .eq("id", raceId);
+      setCloud(error ? "" : "ok");
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [dirty, order, codes, tied, pts, date, cond, raceId]);
 
   // internet voltou: envia o que ficou pendente
   useEffect(() => {
@@ -661,6 +681,7 @@ function RaceEditor() {
     } catch {
       /* ok */
     }
+    if (draftReadyRef.current) db.from("races").update({ draft: null }).eq("id", raceId);
     setDraftFound(null);
   }
 
@@ -760,7 +781,7 @@ function RaceEditor() {
     const ins = del.error ? del : await db.from("results").insert(rows);
     const upd = await db
       .from("races")
-      .update({ sailed_on: date || null, ...(hasConditions(cond) || hasConditions(race.conditions) || cond.recordings?.length ? { conditions: cleanConditions(cond) } : {}) })
+      .update({ sailed_on: date || null, ...(draftReadyRef.current ? { draft: null } : {}), ...(hasConditions(cond) || hasConditions(race.conditions) || cond.recordings?.length ? { conditions: cleanConditions(cond) } : {}) })
       .eq("id", race.id);
     if (isNetwork(ins.error?.message) || isNetwork(upd.error?.message)) {
       setBusy(false);
@@ -1114,9 +1135,11 @@ function RaceEditor() {
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-white/95 backdrop-blur" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
         <div className="mx-auto flex max-w-4xl items-center gap-2 px-4 py-3 sm:px-6">
           <button className="btn-ghost" onClick={undo} disabled={!history.length}>↶ Desfazer</button>
-          <span className="hidden text-sm text-ink-3 sm:inline">{dirty ? "Não salvo" : saved ? "Publicado" : ""}</span>
+          <span className="text-xs text-ink-3 sm:text-sm">
+            {dirty ? (cloud === "ok" ? "☁︎ Guardado · não publicado" : cloud === "saving" ? "Guardando…" : "Guardado no celular") : saved ? "Publicado ✓" : ""}
+          </span>
           <button className="btn-primary ml-auto h-11 px-6 text-base" disabled={busy} onClick={save}>
-            {busy ? "Salvando…" : "Salvar e publicar"}
+            {busy ? "Publicando…" : "Publicar"}
           </button>
         </div>
       </div>
