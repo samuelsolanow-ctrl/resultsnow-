@@ -11,7 +11,7 @@ import StatusBadge from "@/components/StatusBadge";
 import LimaFlag from "@/components/LimaFlag";
 import ClubBadge from "@/components/ClubBadge";
 import EventCover from "@/components/EventCover";
-import { placeText } from "@/lib/eventInfo";
+import { isDoc, placeText } from "@/lib/eventInfo";
 import { noticeSignature } from "@/lib/noticeShare";
 import { useUndoDelete } from "@/lib/useUndoDelete";
 import NoticeShareButton from "@/components/NoticeShareButton";
@@ -996,6 +996,14 @@ function NoticesTab({ eventId, eventName, slug }: { eventId: string; eventName: 
   const [file, setFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
 
+  const [editingNotice, setEditingNotice] = useState<string | null>(null);
+  function editNotice(x: NoticeRow) {
+    setEditingNotice(x.id);
+    setN({ title: x.title, body: x.body ?? "", kind: (x.kind as "aviso" | "doc") ?? (isDoc(x) ? "doc" : "aviso") });
+    setFile(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   async function addNotice(e: React.FormEvent) {
     e.preventDefault();
     setSending(true);
@@ -1011,6 +1019,19 @@ function NoticesTab({ eventId, eventName, slug }: { eventId: string; eventName: 
     }
     const title = n.title.trim() || file?.name.replace(/\.[^.]+$/, "") || "Aviso";
     const kindReady = notices.some((x) => "kind" in x) || !notices.length;
+    // editando um aviso já publicado: atualiza (mantém o anexo se não trocou)
+    if (editingNotice) {
+      const { error: upErr } = await db
+        .from("notices")
+        .update({ title, body: n.body.trim() || null, ...(attach ?? {}), ...(kindReady ? { kind: n.kind } : {}) })
+        .eq("id", editingNotice);
+      setSending(false);
+      if (upErr) return setMsg(upErr.message);
+      setEditingNotice(null);
+      setN({ title: "", body: "", kind: "aviso" });
+      setFile(null);
+      return load();
+    }
     let { error } = await db
       .from("notices")
       .insert({ event_id: eventId, title, body: n.body.trim() || null, ...(attach ?? {}), ...(kindReady ? { kind: n.kind } : {}) });
@@ -1157,7 +1178,24 @@ function NoticesTab({ eventId, eventName, slug }: { eventId: string; eventName: 
               />
             </label>
           </div>
-          <button className="btn-primary" disabled={sending}>{sending ? "Enviando…" : "Publicar aviso"}</button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button className="btn-primary" disabled={sending}>
+              {sending ? "Enviando…" : editingNotice ? "Salvar alteração" : "Publicar aviso"}
+            </button>
+            {editingNotice ? (
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => {
+                  setEditingNotice(null);
+                  setN({ title: "", body: "", kind: "aviso" });
+                }}
+              >
+                Cancelar
+              </button>
+            ) : null}
+          </div>
+          {editingNotice ? <p className="text-xs text-ink-3">Editando um aviso já publicado. O anexo continua o mesmo, a não ser que você escolha outro.</p> : null}
         </form>
         <div className="card divide-y divide-line">
           {notices.filter((x) => !undoNotices.hidden.has(x.id)).map((x) => (
@@ -1174,6 +1212,7 @@ function NoticesTab({ eventId, eventName, slug }: { eventId: string; eventName: 
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1">
                 <NoticeShareButton notice={x} eventName={eventName} official label="Enviar" />
+                <button className="h-8 text-sm font-semibold text-sea" onClick={() => editNotice(x)}>Editar</button>
                 <button className="h-8 text-sm text-red-700" onClick={() => delNotice(x.id)}>Apagar</button>
               </div>
             </div>
