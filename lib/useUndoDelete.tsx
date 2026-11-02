@@ -9,9 +9,9 @@ import { useEffect, useRef, useState } from "react";
 export function useUndoDelete() {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<{ id: string; label: string } | null>(null);
-  const pending = useRef(new Map<string, { t: ReturnType<typeof setTimeout>; run: () => Promise<unknown> }>());
+  const pending = useRef(new Map<string, { t: ReturnType<typeof setTimeout>; run: () => PromiseLike<unknown> }>());
 
-  function remove(id: string, label: string, run: () => Promise<unknown>, after?: () => void) {
+  function remove(id: string, label: string, run: () => PromiseLike<unknown>, after?: () => void) {
     setHidden((h) => new Set(h).add(id));
     setToast({ id, label });
     const t = setTimeout(async () => {
