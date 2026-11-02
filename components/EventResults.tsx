@@ -7,6 +7,7 @@ import { isResultNotice, noticeWhen } from "@/lib/noticeShare";
 import NoticeShareButton from "./NoticeShareButton";
 import OfficialResult from "./OfficialResult";
 import { useCanManage } from "@/lib/useCanManage";
+import { isDoc } from "@/lib/eventInfo";
 import { downloadSumula, sumulaFile, type SumulaData } from "@/lib/pdf";
 import { CODE_LABELS, type Standing } from "@/lib/scoring";
 import { conditionsLine, hasConditions, type RaceConditions } from "@/lib/conditions";
@@ -66,7 +67,7 @@ export default function EventResults({
   eventId?: string;
 }) {
   const canManage = useCanManage(organizer, helpers);
-  const [tab, setTab] = useState<"res" | "avisos" | "protestos">("res");
+  const [tab, setTab] = useState<"res" | "avisos" | "docs" | "protestos">("res");
   const [activeId, setActiveId] = useState(classes[0]?.id);
   const [division, setDivision] = useState<string>("");
   const [followed, setFollowed] = useState<string[]>([]);
@@ -77,11 +78,13 @@ export default function EventResults({
   const [now] = useState(() => Date.now());
   // link de um aviso (#aviso-…): rola até ele quando a aba abre
   useEffect(() => {
-    if (tab !== "avisos" || !window.location.hash.startsWith("#aviso-")) return;
+    if ((tab !== "avisos" && tab !== "docs") || !window.location.hash.startsWith("#aviso-")) return;
     const t = setTimeout(() => document.querySelector(window.location.hash)?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
     return () => clearTimeout(t);
   }, [tab]);
-  const latest = [...notices].sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+  const docs = notices.filter(isDoc);
+  const avisos = notices.filter((n) => !isDoc(n));
+  const latest = [...avisos].sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
   const showLatest = latest && now - new Date(latest.created_at).getTime() < 24 * 3600 * 1000 ? latest : null;
 
   useEffect(() => {
@@ -89,7 +92,7 @@ export default function EventResults({
     const q = p.get("classe");
     if (q && classes.some((c) => c.id === q)) setActiveId(q);
     const t = p.get("aba");
-    if (t === "avisos" || t === "protestos") setTab(t);
+    if (t === "avisos" || t === "docs" || t === "protestos") setTab(t);
     setFollowed(readFollow());
   }, [classes]);
 
@@ -133,7 +136,8 @@ export default function EventResults({
 
   const tabs = [
     { k: "res" as const, label: "Resultados" },
-    ...(notices.length ? [{ k: "avisos" as const, label: "Avisos" }] : []),
+    ...(avisos.length ? [{ k: "avisos" as const, label: "Avisos" }] : []),
+    ...(docs.length ? [{ k: "docs" as const, label: "Docs" }] : []),
     ...(protests.length ? [{ k: "protestos" as const, label: "Protestos" }] : []),
   ];
 
@@ -256,7 +260,8 @@ export default function EventResults({
         </div>
       ) : null}
 
-      {tab === "avisos" ? <Notices notices={notices} eventName={eventName} canShare={canManage} /> : null}
+      {tab === "avisos" ? <Notices notices={avisos} eventName={eventName} canShare={canManage} /> : null}
+      {tab === "docs" ? <Notices notices={docs} eventName={eventName} canShare={canManage} /> : null}
       {tab === "protestos" ? <Protests protests={protests} /> : null}
 
       {tab === "res" && !cls ? <p className="text-ink-3">Este evento ainda não tem classes cadastradas.</p> : null}

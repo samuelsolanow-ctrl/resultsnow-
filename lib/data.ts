@@ -19,17 +19,16 @@ function normalize(ev: EventFull): EventFull {
 
 export async function listPublicEvents(): Promise<EventFull[]> {
   if (!isConfigured()) return [];
-  const { data, error } = await supabaseServer()
-    .from("events")
-    .select(FULL_SELECT)
-    .neq("status", "draft")
-    .order("start_date", { ascending: false, nullsFirst: false })
-    .limit(60);
+  const list = (sel: string) =>
+    supabaseServer().from("events").select(sel).neq("status", "draft").order("start_date", { ascending: false, nullsFirst: false }).limit(60);
+  // com os avisos (para mostrar "AR · IR" no card); se der erro, segue sem
+  let { data, error } = await list(`${FULL_SELECT}, notices(*)`);
+  if (error) ({ data, error } = await list(FULL_SELECT));
   if (error) {
     console.error(error);
     return [];
   }
-  return (data as EventFull[]).map(normalize);
+  return (data as unknown as EventFull[]).map(normalize);
 }
 
 export const getEventBySlug = cache(async function getEventBySlug(slug: string): Promise<EventFull | null> {

@@ -26,6 +26,14 @@ export interface EventRow {
   show_cbvela?: boolean;
   /** outros organizadores que ajudam a administrar */
   helpers?: string[];
+  /** card padronizado */
+  subtitle?: string | null;
+  host_club?: string | null;
+  club_logo_url?: string | null;
+  city?: string | null;
+  uf?: string | null;
+  area?: string | null;
+  level?: string | null;
   created_at: string;
 }
 
@@ -36,6 +44,8 @@ export interface ClassRow {
   crew_size: number;
   discard_rules: DiscardRule[];
   sort_order: number;
+  /** regatas programadas (opcional) */
+  planned_races?: number | null;
 }
 
 export interface EntryRow {
@@ -62,6 +72,8 @@ export interface NoticeRow {
   file_url?: string | null;
   file_name?: string | null;
   author?: string | null;
+  /** "doc" = documento oficial (AR, IR, emendas); "aviso" = aviso do dia */
+  kind?: string | null;
   created_at: string;
 }
 

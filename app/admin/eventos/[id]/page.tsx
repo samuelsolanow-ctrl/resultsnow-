@@ -9,6 +9,9 @@ import RegistrationLink, { Chevron } from "@/components/RegistrationLink";
 import ShareEvent from "@/components/ShareEvent";
 import StatusBadge from "@/components/StatusBadge";
 import LimaFlag from "@/components/LimaFlag";
+import ClubBadge from "@/components/ClubBadge";
+import EventCover from "@/components/EventCover";
+import { placeText } from "@/lib/eventInfo";
 import { noticeSignature } from "@/lib/noticeShare";
 import NoticeShareButton from "@/components/NoticeShareButton";
 import { BR_STATES } from "@/lib/flags";
@@ -270,6 +273,18 @@ function EventForm({ ev, onSaved, org }: { ev: EventRow; onSaved: () => void; or
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => setF(ev), [ev]);
+  // o SQL do card padronizado já foi rodado?
+  const cardReady = "host_club" in ev;
+  const [logoUp, setLogoUp] = useState(false);
+
+  async function uploadLogo(file: File) {
+    setLogoUp(true);
+    const { url, error } = await uploadAttachment(file, ev.id);
+    setLogoUp(false);
+    if (error || !url) return setMsg(error ?? "Falha ao enviar o logo.");
+    setF((x) => ({ ...x, club_logo_url: url }));
+    await save({ club_logo_url: url });
+  }
 
   async function save(patch: Partial<EventRow> = {}) {
     const next = { ...f, ...patch };
@@ -285,6 +300,18 @@ function EventForm({ ev, onSaved, org }: { ev: EventRow; onSaved: () => void; or
         cover_url: next.cover_url,
         ...(next.show_club !== undefined ? { show_club: next.show_club } : {}),
         ...(next.show_cbvela !== undefined ? { show_cbvela: next.show_cbvela } : {}),
+        // campos do card padronizado (só depois de rodar o SQL)
+        ...(cardReady
+          ? {
+              subtitle: next.subtitle?.trim() || null,
+              host_club: next.host_club?.trim() || null,
+              club_logo_url: next.club_logo_url || null,
+              city: next.city?.trim() || null,
+              uf: next.uf || null,
+              area: next.area?.trim() || null,
+              level: next.level || null,
+            }
+          : {}),
       })
       .eq("id", ev.id);
     setMsg(error ? error.message : "Salvo.");
@@ -309,23 +336,21 @@ function EventForm({ ev, onSaved, org }: { ev: EventRow; onSaved: () => void; or
   return (
     <div className="space-y-5">
       <div className="card overflow-hidden">
-        <div className={`relative aspect-video ${f.cover_url ? "bg-ink" : "cover-default"}`}>
-          {f.cover_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={f.cover_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
-          ) : (
-            <span className="absolute inset-0 grid place-items-center text-sm font-semibold text-white/70">Capa padrão</span>
-          )}
-        </div>
+        <EventCover
+          url={f.cover_url}
+          name={f.name}
+          rounded={false}
+          info={{ subtitle: f.subtitle, when: [f.start_date, f.end_date].filter(Boolean).map((d) => new Date(d + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }).replace(".", "")).join(" – "), place: placeText(f, false), club: f.host_club, logo: f.club_logo_url }}
+        />
         <div className="flex flex-wrap items-center gap-2 p-3">
-          <p className="w-full text-xs text-ink-3">Formato 16:9, igual miniatura do YouTube (ex.: 1280 × 720 px).</p>
+          <p className="w-full text-xs text-ink-3">Formato 16:9, igual miniatura do YouTube (ex.: 1280 × 720 px). Sem capa, o app monta uma automática com nome, datas, cidade e clube.</p>
           <label className="btn-ghost cursor-pointer">
             {uploading ? "Enviando…" : f.cover_url ? "Trocar capa" : "Enviar capa"}
             <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
           </label>
           {f.cover_url ? (
             <button className="btn-ghost" onClick={() => { setF({ ...f, cover_url: null }); save({ cover_url: null }); }}>
-              Usar capa padrão
+              Usar capa automática
             </button>
           ) : null}
         </div>
@@ -336,10 +361,55 @@ function EventForm({ ev, onSaved, org }: { ev: EventRow; onSaved: () => void; or
           <label className="label">Nome</label>
           <input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
         </div>
-        <div className="sm:col-span-2">
-          <label className="label">Local</label>
-          <input className="input" value={f.venue ?? ""} onChange={(e) => setF({ ...f, venue: e.target.value })} />
-        </div>
+        {cardReady ? (
+          <>
+            <div className="sm:col-span-2">
+              <label className="label">Subtítulo / troféu</label>
+              <input className="input" value={f.subtitle ?? ""} onChange={(e) => setF({ ...f, subtitle: e.target.value })} placeholder="Troféu Ricardo Santos · Etapa 2 do Ranking" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="label">Clube organizador</label>
+              <div className="flex items-center gap-2">
+                <ClubBadge name={f.host_club} logo={f.club_logo_url} size={40} />
+                <input className="input min-w-0 flex-1" value={f.host_club ?? ""} onChange={(e) => setF({ ...f, host_club: e.target.value })} placeholder="Yacht Club de Ilhabela" />
+                <label className="btn-ghost shrink-0 cursor-pointer px-3 text-xs">
+                  {logoUp ? "Enviando…" : f.club_logo_url ? "Trocar logo" : "Logo"}
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && uploadLogo(e.target.files[0])} />
+                </label>
+              </div>
+            </div>
+            <div>
+              <label className="label">Cidade</label>
+              <input className="input" value={f.city ?? ""} onChange={(e) => setF({ ...f, city: e.target.value })} placeholder="Ilhabela" />
+            </div>
+            <div>
+              <label className="label">Estado</label>
+              <select className="input" value={f.uf ?? ""} onChange={(e) => setF({ ...f, uf: e.target.value || null })}>
+                <option value="">—</option>
+                {BR_STATES.map((u) => <option key={u}>{u}</option>)}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="label">Raia / local da regata</label>
+              <input className="input" value={f.area ?? ""} onChange={(e) => setF({ ...f, area: e.target.value })} placeholder="Canal de São Sebastião" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="label">Nível</label>
+              <select className="input" value={f.level ?? ""} onChange={(e) => setF({ ...f, level: e.target.value || null })}>
+                <option value="">—</option>
+                {["Campeonato Mundial", "Campeonato Sul-Americano", "Campeonato Brasileiro", "Campeonato Regional", "Campeonato Estadual", "Etapa de Ranking", "Regata do clube"].map((l) => (
+                  <option key={l}>{l}</option>
+                ))}
+              </select>
+            </div>
+          </>
+        ) : (
+          <div className="sm:col-span-2">
+            <label className="label">Local</label>
+            <input className="input" value={f.venue ?? ""} onChange={(e) => setF({ ...f, venue: e.target.value })} />
+            <p className="mt-1 text-xs text-ink-3">Rode o SQL do card padronizado no Supabase para separar clube, cidade, raia e logo.</p>
+          </div>
+        )}
         <div>
           <label className="label">Início</label>
           <input className="input" type="date" value={f.start_date ?? ""} onChange={(e) => setF({ ...f, start_date: e.target.value })} />
@@ -461,6 +531,23 @@ function ClassesTab({ eventId, classes, onChange }: { eventId: string; classes: 
               <p className="font-semibold">{c.name} <span className="text-xs font-normal text-ink-3">{c.crew_size === 2 ? "· dupla" : "· individual"}</span></p>
               <p className="text-xs text-ink-3">{rulesText(c.discard_rules)}</p>
             </div>
+            {"planned_races" in c ? (
+              <label className="flex shrink-0 flex-col items-center text-[10px] font-semibold uppercase text-ink-3">
+                Programadas
+                <input
+                  className="input h-8 w-14 text-center"
+                  inputMode="numeric"
+                  defaultValue={c.planned_races ?? ""}
+                  placeholder="—"
+                  onBlur={async (e) => {
+                    const v = e.target.value.trim() ? Number(e.target.value) : null;
+                    if (v === (c.planned_races ?? null)) return;
+                    await sb.from("classes").update({ planned_races: v }).eq("id", c.id);
+                    onChange();
+                  }}
+                />
+              </label>
+            ) : null}
             <button className="text-sm text-red-700" onClick={() => del(c)}>Excluir</button>
           </div>
         ))}
@@ -840,12 +927,23 @@ function RacesTab({ cls }: { cls: ClassRow }) {
 
 /* ---------------- Avisos e protestos ---------------- */
 
+const NOTICE_TEMPLATES: { kind: "aviso" | "doc"; label: string; title: string; body: string }[] = [
+  { kind: "aviso", label: "⏸ Adiamento (AP)", title: "Regatas adiadas (AP)", body: "Bandeira AP em terra. Aguardem novo sinal; o sinal de atenção não será dado antes de 60 minutos após o arriar da AP." },
+  { kind: "aviso", label: "🕐 Horário de largada", title: "Horário de largada", body: "O sinal de atenção da primeira regata do dia será às 13h00." },
+  { kind: "aviso", label: "❌ Regatas do dia canceladas", title: "Regatas do dia canceladas", body: "Não haverá mais regatas hoje." },
+  { kind: "aviso", label: "⚖️ Audiências", title: "Programação de audiências", body: "As audiências serão realizadas na sala do júri a partir das 18h00." },
+  { kind: "aviso", label: "🍽 Social", title: "Programação social", body: "" },
+  { kind: "doc", label: "AR", title: "Aviso de Regata (AR)", body: "" },
+  { kind: "doc", label: "IR", title: "Instruções de Regata (IR)", body: "" },
+  { kind: "doc", label: "Emenda à IR", title: "Emenda nº 1 às Instruções de Regata", body: "" },
+];
+
 const PROTEST_STATUS = ["Agendado", "Em audiência", "Decidido", "Retirado"];
 
 function NoticesTab({ eventId, eventName, slug }: { eventId: string; eventName: string; slug: string }) {
   const [notices, setNotices] = useState<NoticeRow[]>([]);
   const [protests, setProtests] = useState<ProtestRow[]>([]);
-  const [n, setN] = useState({ title: "", body: "" });
+  const [n, setN] = useState({ title: "", body: "", kind: "aviso" });
   const emptyP = { number: "", race: "", protestor: "", protestee: "", hearing_at: "", room: "", status: "Agendado", decision: "" };
   const [p, setP] = useState({ ...emptyP });
   const [editingP, setEditingP] = useState<string | null>(null);
@@ -882,10 +980,15 @@ function NoticesTab({ eventId, eventName, slug }: { eventId: string; eventName: 
       attach = { file_url: up.url, file_name: file.name };
     }
     const title = n.title.trim() || file?.name.replace(/\.[^.]+$/, "") || "Aviso";
-    const { error } = await db.from("notices").insert({ event_id: eventId, title, body: n.body.trim() || null, ...(attach ?? {}) });
+    const kindReady = notices.some((x) => "kind" in x) || !notices.length;
+    let { error } = await db
+      .from("notices")
+      .insert({ event_id: eventId, title, body: n.body.trim() || null, ...(attach ?? {}), ...(kindReady ? { kind: n.kind } : {}) });
+    // SQL do card ainda não rodado: publica sem o tipo
+    if (error && /kind/.test(error.message)) ({ error } = await db.from("notices").insert({ event_id: eventId, title, body: n.body.trim() || null, ...(attach ?? {}) }));
     setSending(false);
     if (error) return setMsg(error.message.includes("file_") ? "Rode o SQL dos anexos no Supabase." : error.message);
-    setN({ title: "", body: "" });
+    setN({ title: "", body: "", kind: "aviso" });
     setFile(null);
     load();
   }
@@ -945,6 +1048,35 @@ function NoticesTab({ eventId, eventName, slug }: { eventId: string; eventName: 
       <section className="space-y-3">
         <h2 className="font-display text-2xl font-bold">Quadro de avisos</h2>
         <form onSubmit={addNotice} className="card space-y-3 p-4">
+          {/* tipo: aviso do dia ou documento oficial (vai para a aba Docs) */}
+          <div className="grid grid-cols-2 gap-1 rounded-lg bg-paper p-1">
+            {([
+              ["aviso", "Aviso"],
+              ["doc", "Documento (AR, IR, emenda)"],
+            ] as const).map(([k, label]) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setN({ ...n, kind: k })}
+                className={`h-9 rounded-md text-sm font-semibold ${n.kind === k ? "bg-white text-ink shadow-sm" : "text-ink-3"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {/* modelos prontos: toca, ajusta e publica */}
+          <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5">
+            {NOTICE_TEMPLATES.filter((t) => t.kind === n.kind).map((t) => (
+              <button
+                key={t.title}
+                type="button"
+                onClick={() => setN({ title: t.title, body: t.body, kind: t.kind })}
+                className="h-8 shrink-0 rounded-full border border-line bg-white px-3 text-xs font-semibold text-ink-2"
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
           <div>
             <label className="label">Título</label>
             <input className="input" required={!file} value={n.title} onChange={(e) => setN({ ...n, title: e.target.value })} placeholder="Instrução de Regata / Alteração nº 1" />
