@@ -935,15 +935,37 @@ function RacesTab({ cls }: { cls: ClassRow }) {
 
 /* ---------------- Avisos e protestos ---------------- */
 
-const NOTICE_TEMPLATES: { kind: "aviso" | "doc"; label: string; title: string; body: string }[] = [
-  { kind: "aviso", label: "⏸ Adiamento (AP)", title: "Regatas adiadas (AP)", body: "Bandeira AP em terra. Aguardem novo sinal; o sinal de atenção não será dado antes de 60 minutos após o arriar da AP." },
-  { kind: "aviso", label: "🕐 Horário de largada", title: "Horário de largada", body: "O sinal de atenção da primeira regata do dia será às 13h00." },
-  { kind: "aviso", label: "❌ Regatas do dia canceladas", title: "Regatas do dia canceladas", body: "Não haverá mais regatas hoje." },
-  { kind: "aviso", label: "⚖️ Audiências", title: "Programação de audiências", body: "As audiências serão realizadas na sala do júri a partir das 18h00." },
-  { kind: "aviso", label: "🍽 Social", title: "Programação social", body: "" },
-  { kind: "doc", label: "AR", title: "Aviso de Regata (AR)", body: "" },
-  { kind: "doc", label: "IR", title: "Instruções de Regata (IR)", body: "" },
-  { kind: "doc", label: "Emenda à IR", title: "Emenda nº 1 às Instruções de Regata", body: "" },
+type NoticeTemplate = { kind: "aviso" | "doc"; group: string; label: string; title: string; body: string };
+const NOTICE_TEMPLATES: NoticeTemplate[] = [
+  // sinais em terra
+  { kind: "aviso", group: "Sinais em terra", label: "Recon em terra", title: "Recon em terra", body: "Recon içado em terra: as regatas estão adiadas. O sinal de atenção não será dado antes de 60 minutos após o arriar do Recon." },
+  { kind: "aviso", group: "Sinais em terra", label: "Recon sobre Hotel", title: "Recon sobre Hotel", body: "Regatas adiadas. Aguardem novos sinais em terra; os barcos não devem deixar o porto." },
+  { kind: "aviso", group: "Sinais em terra", label: "Recon sobre Alfa", title: "Recon sobre Alfa", body: "Regatas adiadas. Não haverá mais regatas hoje." },
+  { kind: "aviso", group: "Sinais em terra", label: "November sobre Alfa", title: "November sobre Alfa", body: "Todas as regatas que largaram foram anuladas. Não haverá mais regatas hoje." },
+  // programação e raia
+  { kind: "aviso", group: "Programação e raia", label: "Horário de largada", title: "Horário do sinal de atenção", body: "O sinal de atenção da primeira regata de hoje será às 13h00." },
+  { kind: "aviso", group: "Programação e raia", label: "Intenção da CR", title: "Intenção da Comissão de Regata", body: "A intenção da Comissão de Regata é realizar 3 regatas hoje na raia ao norte, com percurso barla-sotavento." },
+  { kind: "aviso", group: "Programação e raia", label: "Saída para a raia", title: "Saída para a raia", body: "A saída para a raia está liberada a partir das 12h00." },
+  { kind: "aviso", group: "Programação e raia", label: "CR em terra", title: "Horário da Comissão de Regata em terra", body: "A Comissão de Regata estará em terra às 17h00." },
+  { kind: "aviso", group: "Programação e raia", label: "Reunião de comandantes", title: "Reunião de comandantes", body: "Reunião de comandantes às 10h00 na sede do clube." },
+  // protestos e júri
+  { kind: "aviso", group: "Protestos e júri", label: "Horário limite de protesto", title: "Horário limite de protesto", body: "O prazo para protestos e pedidos de reparação termina às 18h30." },
+  { kind: "aviso", group: "Protestos e júri", label: "Protestos recebidos", title: "Protestos recebidos", body: "1. BRA ___ x BRA ___ (Regata ___)\n2. BRA ___ x BRA ___ (Regata ___)" },
+  { kind: "aviso", group: "Protestos e júri", label: "Programa de audiências", title: "Programa de audiências", body: "Local: sala do júri\n18h45 · Protesto 1 · BRA ___ x BRA ___\n19h00 · Protesto 2 · BRA ___ x BRA ___" },
+  { kind: "aviso", group: "Protestos e júri", label: "Decisões do júri", title: "Decisões do júri", body: "Protesto 1 · BRA ___ x BRA ___ · Regata ___\nDecisão: ___" },
+  { kind: "aviso", group: "Protestos e júri", label: "Penalidades da CR", title: "Penalidades aplicadas pela Comissão de Regata", body: "Sem audiência:\nRegata ___ · BRA ___ · OCS" },
+  { kind: "aviso", group: "Protestos e júri", label: "Penalidades regra 42", title: "Penalidades da regra 42 (propulsão)", body: "Aplicadas na água:\nRegata ___ · BRA ___ · ___" },
+  // segurança e outros
+  { kind: "aviso", group: "Segurança e outros", label: "Mau tempo", title: "Previsão de mau tempo", body: "Previsão de vento forte a partir das 15h00. Ao sinal da Comissão de Regata, todos os barcos devem retornar imediatamente à terra." },
+  { kind: "aviso", group: "Segurança e outros", label: "Check-out pendente", title: "Check-out pendente", body: "Velejadores que ainda não assinaram o check-out: BRA ___. Procurem a secretaria imediatamente." },
+  { kind: "aviso", group: "Segurança e outros", label: "Substituição autorizada", title: "Substituição autorizada", body: "BRA ___: ___ substitui ___." },
+  { kind: "aviso", group: "Segurança e outros", label: "Inspeção de equipamento", title: "Inspeção de equipamento", body: "Após a última regata do dia, os seguintes barcos devem se apresentar para inspeção: BRA ___." },
+  { kind: "aviso", group: "Segurança e outros", label: "Premiação / social", title: "Premiação", body: "A premiação será às 17h00 na sede do clube." },
+  // documentos
+  { kind: "doc", group: "Documentos", label: "Aviso de Regata", title: "Aviso de Regata (AR)", body: "" },
+  { kind: "doc", group: "Documentos", label: "Instruções de Regata", title: "Instruções de Regata (IR)", body: "" },
+  { kind: "doc", group: "Documentos", label: "Emenda às Instruções", title: "Emenda nº 1 às Instruções de Regata", body: "A instrução ___ passa a ter a seguinte redação: ___" },
+  { kind: "doc", group: "Documentos", label: "Alteração do Aviso", title: "Alteração nº 1 do Aviso de Regata", body: "O item ___ passa a ter a seguinte redação: ___" },
 ];
 
 const PROTEST_STATUS = ["Agendado", "Em audiência", "Decidido", "Retirado"];
@@ -1072,19 +1094,36 @@ function NoticesTab({ eventId, eventName, slug }: { eventId: string; eventName: 
               </button>
             ))}
           </div>
-          {/* modelos prontos: toca, ajusta e publica */}
-          <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5">
-            {NOTICE_TEMPLATES.filter((t) => t.kind === n.kind).map((t) => (
-              <button
-                key={t.title}
-                type="button"
-                onClick={() => setN({ title: t.title, body: t.body, kind: t.kind })}
-                className="h-8 shrink-0 rounded-full border border-line bg-white px-3 text-xs font-semibold text-ink-2"
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
+          {/* modelos prontos: toca, ajusta e publica (vai no WhatsApp com a bandeira L e a assinatura) */}
+          <details className="group rounded-lg border border-line">
+            <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2.5 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+              📋 Usar um modelo pronto
+              <span className="text-ink-3 transition group-open:rotate-180">⌄</span>
+            </summary>
+            <div className="space-y-3 border-t border-line p-3">
+              {[...new Set(NOTICE_TEMPLATES.filter((t) => t.kind === n.kind).map((t) => t.group))].map((g) => (
+                <div key={g}>
+                  <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-3">{g}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {NOTICE_TEMPLATES.filter((t) => t.kind === n.kind && t.group === g).map((t) => (
+                      <button
+                        key={t.label}
+                        type="button"
+                        onClick={(e) => {
+                          setN({ title: t.title, body: t.body, kind: t.kind });
+                          (e.currentTarget.closest("details") as HTMLDetailsElement).open = false;
+                        }}
+                        className="h-8 rounded-full border border-line bg-white px-3 text-xs font-semibold text-ink-2 hover:border-sea"
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <p className="text-[11px] text-ink-3">Troque os ___ e horários antes de publicar.</p>
+            </div>
+          </details>
           <div>
             <label className="label">Título</label>
             <input className="input" required={!file} value={n.title} onChange={(e) => setN({ ...n, title: e.target.value })} placeholder="Instrução de Regata / Alteração nº 1" />
