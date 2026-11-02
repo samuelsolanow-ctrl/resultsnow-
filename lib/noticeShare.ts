@@ -10,9 +10,9 @@ export function noticeWhen(iso: string): string {
   return `${day} às ${time}`;
 }
 
-/** Assinatura: "Publicado em 31/10 às 10:17 · Comissão de Regata · Samuel" (at = outro horário, ex.: o do envio) */
+/** Assinatura: "Publicado em 31/10 às 10:17 · Comissão de Regata" (at = outro horário, ex.: o do envio). Quem publicou fica gravado (author), mas não aparece. */
 export function noticeSignature(n: NoticeRow, at?: string): string {
-  return `Publicado em ${noticeWhen(at ?? n.created_at)} · Comissão de Regata${n.author ? ` · ${n.author}` : ""}`;
+  return `Publicado em ${noticeWhen(at ?? n.created_at)} · Comissão de Regata`;
 }
 
 /**

@@ -375,7 +375,7 @@ function infoText(cls: ClassView) {
 }
 
 function Notices({ notices, eventName, canShare }: { notices: NoticeRow[]; eventName: string; canShare: boolean }) {
-  const sign = (n: NoticeRow) => `${noticeWhen(n.created_at)} · Comissão de Regata${n.author ? ` · ${n.author}` : ""}`;
+  const sign = (n: NoticeRow) => `${noticeWhen(n.created_at)} · Comissão de Regata`;
   const ext = (n: NoticeRow) => (n.file_name?.split(".").pop() ?? "arq").slice(0, 4).toUpperCase();
   return (
     <div className="card divide-y divide-line overflow-hidden">
