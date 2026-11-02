@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { PUBLIC_EVENT, isPublicMode, setPublicMode } from "@/lib/publicMode";
 
@@ -30,7 +29,6 @@ export default function OrganizerBar({ eventId, organizer, helpers = [] }: { eve
   }, [organizer, helpers]);
 
   if (!can) return null;
-  const base = `/admin/eventos/${eventId}`;
 
   // vendo como público: só um botãozinho para voltar
   if (pub) {
@@ -45,14 +43,6 @@ export default function OrganizerBar({ eventId, organizer, helpers = [] }: { eve
     );
   }
 
-  // uma faixa fina no topo (não flutua sobre a súmula)
-  const btn = "inline-flex h-8 items-center gap-1 rounded-full px-3 text-xs font-bold";
-  return (
-    <div className="flex items-center gap-1.5 overflow-x-auto bg-amber-50 px-3 py-1.5 text-amber-900 sm:px-4">
-      <span className="mr-auto shrink-0 text-xs font-semibold">🔑 Organizador</span>
-      <Link href={base} className={`${btn} shrink-0 bg-night text-white`}>✎ Editar</Link>
-      <Link href={`/admin/lancar/${eventId}`} className={`${btn} shrink-0 bg-night text-white`}>🏁 Lançar</Link>
-      <button onClick={() => setPublicMode(true)} className={`${btn} shrink-0 border border-amber-300 bg-white`}>👁 Público</button>
-    </div>
-  );
+  // os botões de lançar/editar ficam abaixo do título (OrganizerActions)
+  return null;
 }

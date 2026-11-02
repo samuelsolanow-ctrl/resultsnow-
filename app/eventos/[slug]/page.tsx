@@ -5,6 +5,7 @@ import ClubBadge from "@/components/ClubBadge";
 import { placeText } from "@/lib/eventInfo";
 import OrganizerBar from "@/components/OrganizerBar";
 import AutoRefresh from "@/components/AutoRefresh";
+import OrganizerActions from "@/components/OrganizerActions";
 import EventResults, { type ClassView } from "@/components/EventResults";
 import ShareEvent from "@/components/ShareEvent";
 import { formatDates, getEventBySlug, isPast, standingsFor } from "@/lib/data";
@@ -37,6 +38,14 @@ export default async function EventPage({ params }: Props) {
   if (!ev) notFound();
 
   const when = formatDates(ev.start_date, ev.end_date);
+  // botão do organizador: "Lançar regata 4" ou "Continuar regata 3" (se ficou uma aberta)
+  const launchLabel = (() => {
+    if (ev.classes.length !== 1) return "Lançar regata";
+    const rs = ev.classes[0].races;
+    const last = rs[rs.length - 1];
+    if (last && !(last.results ?? []).length) return `Continuar regata ${last.number}`;
+    return `Lançar regata ${rs.length ? Math.max(...rs.map((r) => r.number)) + 1 : 1}`;
+  })();
   // usado também no cabeçalho do PDF
   const subtitle = [ev.host_club, placeText(ev), when].filter(Boolean).join(" · ");
   const updated = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
@@ -88,6 +97,7 @@ export default async function EventPage({ params }: Props) {
       </div>
 
       <div className="wrap max-w-4xl py-4 sm:py-6">
+        <OrganizerActions eventId={ev.id} organizer={ev.organizer} helpers={ev.helpers ?? []} label={launchLabel} />
         <EventResults
           eventName={ev.name}
           subtitle={subtitle}

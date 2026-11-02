@@ -294,8 +294,9 @@ export default function EventResults({
           <section className="card overflow-hidden">
             <div className="flex items-end justify-between gap-3 px-4 pb-2 pt-3">
               <div className="min-w-0">
-                <h2 className="font-display text-2xl font-bold leading-none">
-                  {cls.name}
+                <p className="text-[10px] font-bold uppercase tracking-widest text-sea">Classificação geral</p>
+                <h2 className="mt-0.5 font-display text-2xl font-bold leading-none">
+                  {/^classe\b/i.test(cls.name) ? cls.name : `Classe ${cls.name}`}
                   {division ? <span className="text-sea"> · {division}</span> : null}
                 </h2>
                 <p className="mt-1 text-xs text-ink-3">{infoText(cls)}</p>
@@ -380,9 +381,9 @@ export default function EventResults({
 
 function infoText(cls: ClassView) {
   return [
-    `${cls.entries} inscritos`,
+    `${cls.entries} barco${cls.entries === 1 ? "" : "s"}`,
     `${cls.races.length} regata${cls.races.length === 1 ? "" : "s"}`,
-    cls.nDiscards ? `${cls.nDiscards} descarte${cls.nDiscards > 1 ? "s" : ""}` : "",
+    cls.nDiscards ? `${cls.nDiscards} descarte${cls.nDiscards > 1 ? "s" : ""}` : cls.races.length ? "sem descarte" : "",
   ]
     .filter(Boolean)
     .join(" · ");
