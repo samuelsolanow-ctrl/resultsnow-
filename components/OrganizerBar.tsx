@@ -45,31 +45,14 @@ export default function OrganizerBar({ eventId, organizer, helpers = [] }: { eve
     );
   }
 
+  // uma faixa fina no topo (não flutua sobre a súmula)
+  const btn = "inline-flex h-8 items-center gap-1 rounded-full px-3 text-xs font-bold";
   return (
-    <>
-      {/* aviso: você está logado */}
-      <div className="flex items-center justify-between gap-2 bg-amber-100 px-4 py-2 text-xs text-amber-900 sm:text-sm">
-        <span>🔑 Você está como <b>organizador</b></span>
-        <button onClick={() => setPublicMode(true)} className="font-bold underline">👁 Ver como público</button>
-      </div>
-      {/* espaço para a barra não cobrir o fim da página */}
-      <div className="h-24" />
-      <div
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-night/95 backdrop-blur"
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-      >
-        <div className="wrap flex items-center gap-2 py-3">
-          <Link href={base} className="btn h-12 flex-1 bg-sky text-base font-bold text-night hover:bg-sky-600">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
-              <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-            </svg>
-            Editar evento
-          </Link>
-          <Link href={`${base}?aba=regatas`} className="btn h-12 flex-1 border border-white/25 text-base text-white hover:bg-white/10">
-            🏁 Lançar regata
-          </Link>
-        </div>
-      </div>
-    </>
+    <div className="flex items-center gap-1.5 overflow-x-auto bg-amber-50 px-3 py-1.5 text-amber-900 sm:px-4">
+      <span className="mr-auto shrink-0 text-xs font-semibold">🔑 Organizador</span>
+      <Link href={base} className={`${btn} shrink-0 bg-night text-white`}>✎ Editar</Link>
+      <Link href={`${base}?aba=regatas`} className={`${btn} shrink-0 bg-night text-white`}>🏁 Lançar</Link>
+      <button onClick={() => setPublicMode(true)} className={`${btn} shrink-0 border border-amber-300 bg-white`}>👁 Público</button>
+    </div>
   );
 }

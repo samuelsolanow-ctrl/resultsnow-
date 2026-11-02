@@ -1,6 +1,7 @@
 import EventCard from "@/components/EventCard";
 import RankingChip from "@/components/RankingChip";
 import Link from "next/link";
+import AutoRefresh from "@/components/AutoRefresh";
 import { isPast, listCircuits, listPublicEvents } from "@/lib/data";
 import { isConfigured } from "@/lib/supabase";
 
@@ -13,6 +14,7 @@ export default async function Home() {
 
   return (
     <>
+    <AutoRefresh every={120} />
     <section className="cover-default">
       <div className="wrap py-10 sm:py-16">
         <h1 className="max-w-lg font-display text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl">

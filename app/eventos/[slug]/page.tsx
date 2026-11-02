@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import EventCover from "@/components/EventCover";
 import OrganizerBar from "@/components/OrganizerBar";
+import AutoRefresh from "@/components/AutoRefresh";
 import EventResults, { type ClassView } from "@/components/EventResults";
 import ShareEvent from "@/components/ShareEvent";
 import { formatDates, getEventBySlug, isPast, standingsFor } from "@/lib/data";
@@ -51,6 +52,7 @@ export default async function EventPage({ params }: Props) {
 
   return (
     <div>
+      <AutoRefresh />
       <OrganizerBar eventId={ev.id} organizer={ev.organizer} helpers={ev.helpers ?? []} />
       <div className="border-b border-line bg-white">
         <div className="mx-auto max-w-4xl sm:px-6 sm:pt-5">

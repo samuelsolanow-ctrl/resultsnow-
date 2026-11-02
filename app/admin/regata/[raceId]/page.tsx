@@ -20,7 +20,8 @@ export default function RacePage() {
   return <AuthGate>{() => <RaceEditor />}</AuthGate>;
 }
 
-const QUICK_CODES = ["OCS", "DNF", "DNS", "RET", "DSQ", "BFD", "UFD", "NSC", "DNC"];
+// os mais usados primeiro
+const QUICK_CODES = ["DNF", "DNC", "DNS", "OCS", "RET", "DSQ", "BFD", "UFD", "NSC"];
 const ALL_CODES = [...QUICK_CODES, "DNE", "DGM", "RDG"];
 /** marcações para quem cruzou a linha (mantém o lugar) */
 const FINISH_MARKS = ["", "TIE", ...KEEP_PLACE_CODES];
