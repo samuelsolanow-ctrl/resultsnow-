@@ -13,6 +13,7 @@ import ClubBadge from "@/components/ClubBadge";
 import EventCover from "@/components/EventCover";
 import { placeText } from "@/lib/eventInfo";
 import { noticeSignature } from "@/lib/noticeShare";
+import { useUndoDelete } from "@/lib/useUndoDelete";
 import NoticeShareButton from "@/components/NoticeShareButton";
 import { BR_STATES } from "@/lib/flags";
 import { parseList } from "@/lib/parseList";
@@ -664,8 +665,9 @@ function EntriesTab({
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  const pending = entries.filter((e) => e.status === "pending");
-  const confirmed = entries.filter((e) => e.status !== "pending");
+  const undoEntries = useUndoDelete();
+  const pending = entries.filter((e) => e.status === "pending" && !undoEntries.hidden.has(e.id));
+  const confirmed = entries.filter((e) => e.status !== "pending" && !undoEntries.hidden.has(e.id));
 
   async function approve(en: EntryRow) {
     const { error } = await sb.from("entries").update({ status: "confirmed" }).eq("id", en.id);
@@ -673,10 +675,8 @@ function EntriesTab({
     load();
   }
 
-  async function del(en: EntryRow) {
-    if (!confirm(`Remover ${en.sail_number} ${en.helm_name}? Os resultados dele também saem.`)) return;
-    await sb.from("entries").delete().eq("id", en.id);
-    load();
+  function del(en: EntryRow) {
+    undoEntries.remove(en.id, `${en.sail_number} ${en.helm_name} removido`, () => sb.from("entries").delete().eq("id", en.id), load);
   }
 
   const preview = useMemo(() => (bulk.trim() ? parseList(bulk, duo) : []), [bulk, duo]);
@@ -695,6 +695,7 @@ function EntriesTab({
 
   return (
     <div className="space-y-4">
+      {undoEntries.node}
       <form onSubmit={save} className="card grid gap-3 p-4 sm:grid-cols-4">
         <h2 className="font-display text-xl font-bold sm:col-span-4">{editing ? "Editar inscrito" : `Inscrever atleta · ${cls.name}`}</h2>
         {!editing && linkMode ? (
@@ -873,12 +874,18 @@ function RacesTab({ cls }: { cls: ClassRow }) {
 
   const nextNumber = useMemo(() => (races.length ? Math.max(...races.map((r) => r.number)) + 1 : 1), [races]);
 
-  async function removeRace(r: RaceRow & { results: { count: number }[] }) {
+  const undoRaces = useUndoDelete();
+  function removeRace(r: RaceRow & { results: { count: number }[] }) {
     const n = r.results?.[0]?.count ?? 0;
-    if (!confirm(`Apagar a regata ${r.number} de ${cls.name}?${n ? `\n\nOs ${n} resultados dela também serão apagados.` : ""}\nNão dá para desfazer.`)) return;
-    const { error } = await sb.from("races").delete().eq("id", r.id);
-    if (error) return setErr(error.message);
-    load();
+    undoRaces.remove(
+      r.id,
+      `Regata ${r.number} apagada${n ? ` (${n} resultados)` : ""}`,
+      async () => {
+        const { error } = await sb.from("races").delete().eq("id", r.id);
+        if (error) setErr(error.message);
+      },
+      load
+    );
   }
 
   async function newRace() {
@@ -894,10 +901,11 @@ function RacesTab({ cls }: { cls: ClassRow }) {
 
   return (
     <div className="space-y-3">
+      {undoRaces.node}
       <button className="btn-primary" onClick={newRace}>+ Lançar regata {nextNumber} · {cls.name}</button>
       {err ? <p className="text-sm text-flag">{err}</p> : null}
       <div className="card divide-y divide-line">
-        {races.map((r) => (
+        {races.filter((r) => !undoRaces.hidden.has(r.id)).map((r) => (
           <div key={r.id} className="flex items-center hover:bg-paper">
             <Link href={`/admin/regata/${r.id}`} className="flex min-w-0 flex-1 items-center gap-3 p-3">
               <span className="font-display text-xl font-bold">R{r.number}</span>
@@ -993,10 +1001,9 @@ function NoticesTab({ eventId, eventName, slug }: { eventId: string; eventName: 
     load();
   }
 
-  async function delNotice(id: string) {
-    if (!confirm("Apagar este aviso?")) return;
-    await db.from("notices").delete().eq("id", id);
-    load();
+  const undoNotices = useUndoDelete();
+  function delNotice(id: string) {
+    undoNotices.remove(id, "Aviso apagado", () => db.from("notices").delete().eq("id", id), load);
   }
 
   async function saveProtest(e: React.FormEvent) {
@@ -1043,6 +1050,7 @@ function NoticesTab({ eventId, eventName, slug }: { eventId: string; eventName: 
 
   return (
     <div className="space-y-8">
+      {undoNotices.node}
       {msg ? <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{msg}</p> : null}
 
       <section className="space-y-3">
@@ -1113,7 +1121,7 @@ function NoticesTab({ eventId, eventName, slug }: { eventId: string; eventName: 
           <button className="btn-primary" disabled={sending}>{sending ? "Enviando…" : "Publicar aviso"}</button>
         </form>
         <div className="card divide-y divide-line">
-          {notices.map((x) => (
+          {notices.filter((x) => !undoNotices.hidden.has(x.id)).map((x) => (
             <div key={x.id} className="flex gap-3 p-3">
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-1.5 text-xs text-ink-3"><LimaFlag size={16} /> {noticeSignature(x)}</p>
