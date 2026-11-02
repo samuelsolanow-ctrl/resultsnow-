@@ -302,7 +302,7 @@ export default function EventResults({
               </div>
               <div className="flex shrink-0 items-center gap-3 text-sm font-semibold text-sea">
                 {lastRace ? (
-                  <button onClick={shareImage} disabled={imgBusy} className="disabled:opacity-50">🖼 Imagem</button>
+                  <button onClick={shareImage} disabled={imgBusy} className="disabled:opacity-50">⤓ Imagem</button>
                 ) : null}
                 <button onClick={pdf} disabled={busy || !cls.entries} className="disabled:opacity-50">{busy ? "Gerando…" : "⤓ PDF"}</button>
               </div>
