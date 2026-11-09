@@ -26,7 +26,10 @@ export async function listPublicEvents(): Promise<EventFull[]> {
   if (error) ({ data, error } = await list(FULL_SELECT));
   if (error) {
     console.error(error);
-    return [];
+    // durante o build, segue vazio para não travar a publicação
+    if (process.env.NEXT_PHASE === "phase-production-build") return [];
+    // fora do build: erro → o site continua mostrando a última versão boa (em vez de "nenhum evento")
+    throw new Error(`Banco indisponível: ${error.message}`);
   }
   return (data as unknown as EventFull[]).map(normalize);
 }
