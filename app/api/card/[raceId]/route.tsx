@@ -241,7 +241,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ raceId: 
             <div style={{ display: "flex" }}>
               {mode === "geral" ? `${entries.length} barcos · ( ) descarte${prev.length ? ` · setas: posições desde a R${race.number - 1}` : ""}` : `${entries.length} barcos`}
             </div>
-            <div style={{ display: "flex" }}>resultsnow.vercel.app</div>
+            <div style={{ display: "flex" }}>{process.env.VERCEL_PROJECT_PRODUCTION_URL ?? "resultsnow.vercel.app"}</div>
           </div>
         </div>
       </div>
